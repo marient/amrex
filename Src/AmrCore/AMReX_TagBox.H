@@ -34,16 +34,24 @@ public:
     //! Possible values for each cell.
     enum TagVal { CLEAR=0, BUF, SET };
 
-    TagBox () noexcept;
+    /**
+    * \brief Construct an invalid TagBox with no memory.
+    */
+    TagBox ();
 
-    explicit TagBox (Arena* ar) noexcept;
+    /**
+    * \brief Construct a TagBox on Box bx with number of components n.
+    *
+    * \param bx
+    * \param n
+    * \param alloc
+    * \param shared
+    */
+    explicit TagBox (const Box& bx, int n = 1, bool alloc = true, bool shared = false);
 
-    TagBox (const Box& bx, int n, Arena* ar);
-
-    explicit TagBox (const Box& bx, int n = 1, bool alloc = true,
-                     bool shared = false, Arena* ar = nullptr);
-
-    TagBox (const TagBox& rhs, MakeType make_type, int scomp, int ncomp);
+#ifdef AMREX_USE_GPU
+    TagBox (const TagBox& rhs, MakeType make_type);
+#endif
 
     ~TagBox () = default;
 
@@ -61,7 +69,7 @@ public:
     * \param ratio
     * \param owner
     */
-    void coarsen (const IntVect& ratio) noexcept;
+    void coarsen (const IntVect& ratio, bool owner);
 
     /**
     * \brief Mark neighbors of every tagged cell a distance nbuff away
@@ -71,14 +79,14 @@ public:
     * \param nbuff
     * \param nwid
     */
-    void buffer (const IntVect& nbuf, const IntVect& nwid) noexcept;
+    void buffer (int nbuff, int nwid);
 
     /**
     * \brief Tag cells on intersect with src if corresponding src cell is tagged.
     *
     * \param src
     */
-    void merge (const TagBox& src) noexcept;
+    void merge (const TagBox& src);
 
     /**
     * \brief Add location of every tagged cell to IntVect array,
@@ -88,26 +96,26 @@ public:
     * \param ar
     * \param start
     */
-    long collate (Vector<IntVect>& ar, int start) const noexcept;
+    long collate (Vector<IntVect>& ar, int start) const;
 
     /**
     * \brief Returns number of tagged cells in specified Box.
     *
     * \param bx
     */
-    long numTags (const Box& bx) const noexcept;
+    long numTags (const Box& bx) const;
 
     /**
     * \brief Returns total number of tagged cells in the TagBox.
     */
-    long numTags () const noexcept;
+    long numTags () const;
 
     /**
     * \brief Returns Vector\<int\> of size domain.numPts() suitable for calling
     * Fortran, with positions set to same value as in the TagBox
     * dataPtr().
     */
-    Vector<int> tags () const noexcept;
+    Vector<int> tags () const;
 
     /**
     * \brief Since a TagBox is a BaseFab\<char\>, we can use this utility
@@ -117,7 +125,7 @@ public:
     * \param ar
     * \param tilebx
     */
-    void get_itags(Vector<int>& ar, const Box& tilebx) const noexcept;
+    void get_itags(Vector<int>& ar, const Box& tilebx) const;
 
     /**
     * \brief Set values as specified by the array -- this only tags.
@@ -125,7 +133,7 @@ public:
     *
     * \param ar
     */
-    void tags (const Vector<int>& ar) noexcept;
+    void tags (const Vector<int>& ar);
 
     /**
     * \brief Set values as specified by the array -- this tags and untags.
@@ -133,7 +141,7 @@ public:
     *
     * \param ar
     */
-    void tags_and_untags (const Vector<int>& ar) noexcept;
+    void tags_and_untags (const Vector<int>& ar);
 
     /**
     * \brief Set values as specified by the array -- this only tags.
@@ -142,7 +150,7 @@ public:
     * \param ar
     * \param tilebx
     */
-    void tags (const Vector<int>& ar, const Box& tilebx) noexcept;
+    void tags (const Vector<int>& ar, const Box& tilebx);
 
     /**
     * \brief Set values as specified by the array -- this tags and untags.
@@ -151,7 +159,7 @@ public:
     * \param ar
     * \param tilebx
     */
-    void tags_and_untags (const Vector<int>& ar, const Box& tilebx) noexcept;
+    void tags_and_untags (const Vector<int>& ar, const Box& tilebx);
 };
 
 
@@ -178,7 +186,6 @@ public:
     * \param _ngrow
     */
     TagBoxArray (const BoxArray& bs, const DistributionMapping& dm, int _ngrow=0);
-    TagBoxArray (const BoxArray& bs, const DistributionMapping& dm, const IntVect& _ngrow);
 
     ~TagBoxArray () override = default;
 
@@ -192,14 +199,14 @@ public:
     /**
     * \brief Returns the grow factor for the TagBoxArray.
     */
-    IntVect borderSize () const noexcept;
+    int borderSize () const;
 
     /**
     * \brief Calls buffer() on all contained TagBoxes.
     *
     * \param nbuf
     */
-    void buffer (const IntVect& nbuf);
+    void buffer (int nbuf);
 
     /**
     * \brief Map tagged cells through a periodic boundary to other grids in

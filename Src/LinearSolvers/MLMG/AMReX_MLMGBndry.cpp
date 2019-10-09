@@ -13,14 +13,13 @@ MLMGBndry::MLMGBndry (const BoxArray& _grids,
 MLMGBndry::~MLMGBndry () {}
 
 void
-MLMGBndry::setLOBndryConds (const Vector<Array<LinOpBCType,AMREX_SPACEDIM> >& lo,
-                            const Vector<Array<LinOpBCType,AMREX_SPACEDIM> >& hi,
+MLMGBndry::setLOBndryConds (const Array<LinOpBCType,AMREX_SPACEDIM>& lo,
+                            const Array<LinOpBCType,AMREX_SPACEDIM>& hi,
                             int ratio, const RealVect& a_loc)
 {
     const BoxArray& ba     = boxes();
     const Real*     dx     = geom.CellSize();
     const Box&      domain = geom.Domain();
-    const GpuArray<int,AMREX_SPACEDIM>& is_periodic = geom.isPeriodicArray();
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -32,14 +31,12 @@ MLMGBndry::setLOBndryConds (const Vector<Array<LinOpBCType,AMREX_SPACEDIM> >& lo
         RealTuple&                 bloc  = bcloc[fsi];
         Vector< Vector<BoundCond> >& bctag = bcond[fsi];
 
-        for (int icomp = 0; icomp < nComp(); ++icomp) {
-            BCTuple bct;
-            setBoxBC(bloc, bct, grd, domain, lo[icomp], hi[icomp], dx, ratio,
-                     a_loc, {AMREX_D_DECL(0.,0.,0.)}, {AMREX_D_DECL(0.,0.,0.)},
-                     is_periodic);
-            for (int idim = 0; idim < 2*AMREX_SPACEDIM; ++idim) {
-                bctag[idim][icomp] = bct[idim];
-            }
+        BCTuple bct;
+        setBoxBC(bloc, bct, grd, domain, lo, hi, dx, ratio, a_loc);
+
+        const int comp = 0;
+        for (int idim = 0; idim < 2*AMREX_SPACEDIM; ++idim) {
+            bctag[idim][comp] = bct[idim];
         }
     }
 }
@@ -48,21 +45,17 @@ void
 MLMGBndry::setBoxBC (RealTuple& bloc, BCTuple& bctag, const Box& bx, const Box& domain,
                      const Array<LinOpBCType,AMREX_SPACEDIM>& lo,
                      const Array<LinOpBCType,AMREX_SPACEDIM>& hi,
-                     const Real* dx, int ratio,
-                     const RealVect& interior_bloc,
-                     const Array<Real,AMREX_SPACEDIM>& domain_bloc_lo,
-                     const Array<Real,AMREX_SPACEDIM>& domain_bloc_hi,
-                     const GpuArray<int,AMREX_SPACEDIM>& is_periodic)
+                     const Real* dx, int ratio, const RealVect& a_loc)
 {
     for (OrientationIter fi; fi; ++fi)
     {
         const Orientation face = fi();
         const int         dir  = face.coordDir();
         
-        if (domain[face] == bx[face] && !is_periodic[dir])
+        if (domain[face] == bx[face] && !Geometry::isPeriodic(dir))
         {
             // All physical bc values are located on face.
-            bloc[face] = face.isLow() ? domain_bloc_lo[dir] : domain_bloc_hi[dir];
+            bloc[face]  = 0;
             const auto linop_bc  = face.isLow() ? lo[dir] : hi[dir];
             if (linop_bc == LinOpBCType::Dirichlet) {
                 bctag[face] = AMREX_LO_DIRICHLET;
@@ -78,7 +71,7 @@ MLMGBndry::setBoxBC (RealTuple& bloc, BCTuple& bctag, const Box& bx, const Box& 
         {
             // Internal bndry.
             bctag[face] = AMREX_LO_DIRICHLET;
-            bloc[face]  = ratio > 0 ? 0.5*ratio*dx[dir] : interior_bloc[dir];
+            bloc[face]  = ratio > 0 ? 0.5*ratio*dx[dir] : a_loc[dir];
             // If this is next to another same level box, bloc is
             // wrong.  But it doesn't matter, because we also have
             // mask.  It is used only if mask says it is next to

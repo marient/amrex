@@ -41,9 +41,9 @@ namespace amrex
 	    {
 	      const Box& tbx = *(RG_fine->fabTiles[f]->tileBx[t]);
 	      
-              amrex_avgdown(tbx,crse_S_fine[lfi].array(),S_fine[lfi].array(),0,scomp,ncomp,ratio);
+              amrex_avgdown(tbx,crse_S_fine[lfi],S_fine[lfi],0,scomp,ncomp,ratio);
 	    }
-	RG_fine->worker[tg]->l_barr->sync(perilla::NUM_THREADS_PER_TEAM-perilla::NUM_COMM_THREADS); // Barrier to synchronize team threads
+	RG_fine->worker[tg]->barr->sync(perilla::NUM_THREADS_PER_TEAM-perilla::NUM_COMM_THREADS); // Barrier to synchronize team threads
 	
 	//if(RG_fine->graphID == 23)
 	//std::cout<<"In avg down pushAsych f " << f << std::endl;
@@ -116,7 +116,7 @@ namespace amrex
 	int lfi = crse_S_fine.IndexArray()[f];
  	const Box& tbx = crse_S_fine[ lfi ].box();
 	
-        amrex_avgdown_with_vol(tbx,crse_S_fine[lfi].array(),S_fine[lfi].array(),fvolume[lfi].array(),
+        amrex_avgdown_with_vol(tbx,crse_S_fine[lfi],S_fine[lfi],fvolume[lfi],
                                0,scomp,ncomp,ratio);
 	//}
 

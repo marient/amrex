@@ -16,7 +16,7 @@
 #include <AMReX_AmrMeshInSituBridge.H>
 #endif
 
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
 #include <AMReX_MemProfiler.H>
 #endif
 
@@ -560,7 +560,7 @@ void LSCoreBase::FillLevelSet( MultiFab & level_set, const MultiFab & ls_crse,
     Real min_dx       = LSUtility::min_dx(geom);
     Real ls_threshold = min_dx * (eb_pad + 1);
 
-    const IntVect max_grow{AMREX_D_DECL(eb_pad, eb_pad, eb_pad)};
+    const IntVect max_grow{eb_pad, eb_pad, eb_pad};
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -650,7 +650,7 @@ Vector<MultiFab> LSCoreBase::PlotFileMF () const {
 
         amrex::average_node_to_cellcenter(r[i], 0, level_set[i], 0, 1);
     }
-    return r;
+    return std::move(r);
 }
 
 

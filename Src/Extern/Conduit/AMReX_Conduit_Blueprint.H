@@ -3,7 +3,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Conduit Mesh Blueprint Support for AMReX
+// Conduit Mesh Blueprint Support for AMReX Meshes
 //
 // This file is only included when USE_CONDUIT = TRUE
 //
@@ -13,17 +13,12 @@
 
 #include <AMReX_Geometry.H>
 #include <AMReX_MultiFab.H>
-#ifdef AMREX_PARTICLES
-#include <AMReX_Particles.H>
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////
-// These functions generate a Conduit Blueprint Mesh representation of
-// AMReX AMR meshes and particle containers. 
-// 
-// Data from MultiFABs and ParticleContainers are zero copied and annotated
-// in Conduit Node Trees. This is the format used to pass meshes to ALPINE
-// Ascent for in situ rendering and analysis.
+// These functions generate a Conduit Blueprint Mesh representation of an
+// AMReX AMR mesh. The data from the MultiFABs is zero copied into the Conduit
+// Node Tree. This is the format used to pass meshes to ALPINE Ascent for
+// in situ rendering and analysis.
 //
 // For more details, please see:
 //
@@ -41,15 +36,15 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
-///  Current Support:
-///  * 2D + 3D
-///  * single + multi-level (w/o nesting)
-///  * ghosts (indicator field created using `grow`)
-///  * particles
-///
-/// TODO:
-///  * AMR nesting
-///
+//  Current Support:
+//  * 2D + 3D
+//  * single + multi-level (w/o nesting)
+//  * ghosts (indicator field created using `grow`)
+//
+// TODO:
+//  * AMR nesting
+//  * Particles
+//
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <conduit/conduit.hpp>
@@ -83,24 +78,6 @@ namespace amrex
                                 const Vector<IntVect> &ref_ratio,
                                 conduit::Node &bp_mesh);
 
-#ifdef AMREX_PARTICLES
-    // Creates an in-memory Mesh Blueprint representation of an AMReX
-    // particle container.
-    //
-    //  This method's signature is similar to ParticleContainer::Checkpoint()
-    //   real_comp_names are first mapped in order to the aos then soa reals
-    //   int_comp_names are first mapped in order to the aos then soa ints
-    //
-    template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
-    void ParticleContainerToBlueprint (const ParticleContainer<NStructReal,
-                                                               NStructInt,
-                                                               NArrayReal,
-                                                               NArrayInt> &pc,
-                                       const Vector<std::string> &real_comp_names,
-                                       const Vector<std::string> &int_comp_names,
-                                       conduit::Node &bp_mesh);
-#endif
-
     // Writes a Mesh Blueprint representation to a set of files that
     // can be visualized in VisIt using the Blueprint plugin.
     //
@@ -116,10 +93,5 @@ namespace amrex
                               const std::string &protocol = "json");
 
 }
-
-#ifdef AMREX_PARTICLES
-    #include "AMReX_Conduit_Blueprint_ParticlesI.H"
-#endif
-
 
 #endif

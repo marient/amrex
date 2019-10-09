@@ -39,16 +39,12 @@ public:
     void setACoeffs (int amrlev, const MultiFab& alpha);
     void setBCoeffs (int amrlev, const Array<MultiFab const*,AMREX_SPACEDIM>& beta);
 
-    // Tells the solver that EB boundaries have Dirichlet bc's specified by "phi"
-    void setEBDirichlet      (int amrlev, const MultiFab& phi, const MultiFab& beta);
+    void setEBDirichlet (int amrlev, const MultiFab& phi, const MultiFab& beta);
 
-    // Tells the solver that EB boundaries have homogeneous Dirichlet bc's
-    void setEBHomogDirichlet (int amrlev,                      const MultiFab& beta);
-
-    virtual bool needsUpdate () const override {
+    virtual bool needsUpdate () const final override {
         return (m_needs_update || MLCellABecLap::needsUpdate());
     }
-    virtual void update () override;
+    virtual void update () final override;
 
     virtual std::unique_ptr<FabFactory<FArrayBox> > makeFactory (int amrlev, int mglev) const final override;
 
@@ -57,13 +53,13 @@ public:
     virtual void applyBC (int amrlev, int mglev, MultiFab& in, BCMode bc_mode, StateMode s_mode,
                           const MLMGBndry* bndry=nullptr, bool skip_fillboundary=false) const final override;
     virtual void apply (int amrlev, int mglev, MultiFab& out, MultiFab& in, BCMode bc_mode,
-                        StateMode s_mode, const MLMGBndry* bndry=nullptr) const override;
+                        StateMode s_mode, const MLMGBndry* bndry=nullptr) const final override;
     virtual void compGrad (int amrlev, const Array<MultiFab*,AMREX_SPACEDIM>& grad,
                            MultiFab& sol, Location loc) const final override;
 
-    virtual void prepareForSolve () override;
-    virtual bool isSingular (int amrlev) const override { return m_is_singular[amrlev]; }
-    virtual bool isBottomSingular () const override { return m_is_singular[0]; }
+    virtual void prepareForSolve () final override;
+    virtual bool isSingular (int amrlev) const final override { return m_is_singular[amrlev]; }
+    virtual bool isBottomSingular () const final override { return m_is_singular[0]; }
     virtual void Fapply (int amrlev, int mglev, MultiFab& out, const MultiFab& in) const final override;
     virtual void Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& rhs, int redblack) const final override;
     virtual void FFlux (int amrlev, const MFIter& mfi,
@@ -104,6 +100,8 @@ protected:
 
     bool m_needs_update = true;
 
+private:
+
     Real m_a_scalar = std::numeric_limits<Real>::quiet_NaN();
     Real m_b_scalar = std::numeric_limits<Real>::quiet_NaN();
     Vector<Vector<MultiFab> > m_a_coeffs;
@@ -120,7 +118,7 @@ protected:
     //
     // functions
     //
-    bool isEBDirichlet   () const noexcept { return m_eb_phi[0] != nullptr; }
+    bool isEBDirichlet () const { return m_eb_phi[0] != nullptr; }
 
     void averageDownCoeffsSameAmrLevel (Vector<MultiFab>& a,
                                         Vector<Array<MultiFab,AMREX_SPACEDIM> >& b,

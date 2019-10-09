@@ -21,22 +21,21 @@ class BoundCond
 public:
     //
     //! Initializes boundary condition type to default.
-    BoundCond () noexcept : bctype(-1) {}
+    BoundCond () : bctype(-1) {}
     //
     //! Initializes boundary condition type to specified value.
-    // Many codes rely on implicit conversion.  So no explicit here.
-    BoundCond (int _bctype) noexcept : bctype(_bctype) {}
+    BoundCond (int _bctype) : bctype(_bctype) {}
     //
     //! Return index of boundary condition type.
     AMREX_GPU_HOST_DEVICE
-    operator int () const noexcept
+    operator int () const
     {
         BL_ASSERT(bctype != -1);
         return bctype;
     }
     //
     //! Set index of boundary condition type.
-    BoundCond& operator= (const int _bctype) noexcept
+    BoundCond& operator= (const int _bctype)
     {
         bctype = _bctype;
         return *this;

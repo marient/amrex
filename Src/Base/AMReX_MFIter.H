@@ -18,9 +18,9 @@
 namespace amrex {
 
 #ifdef AMREX_USE_GPU
-    inline bool TilingIfNotGPU () noexcept { return Gpu::notInLaunchRegion(); }
+    inline bool TilingIfNotGPU () { return Gpu::notInLaunchRegion(); }
 #else
-    inline constexpr bool TilingIfNotGPU () noexcept { return true; }
+    inline constexpr bool TilingIfNotGPU () { return true; }
 #endif
 
 template<class T> class FabArray;
@@ -29,35 +29,16 @@ struct MFItInfo
 {
     bool do_tiling;
     bool dynamic;
-    bool device_sync;
-    int  num_streams;
     IntVect tilesize;
-    MFItInfo () noexcept
-        : do_tiling(false), dynamic(false), device_sync(true), num_streams(Gpu::numGpuStreams()),
-          tilesize(IntVect::TheZeroVector()) {}
-    MFItInfo& EnableTiling (const IntVect& ts = FabArrayBase::mfiter_tile_size) noexcept {
+    MFItInfo ()
+        : do_tiling(false), dynamic(false), tilesize(IntVect::TheZeroVector()) {}
+    MFItInfo& EnableTiling (const IntVect& ts = FabArrayBase::mfiter_tile_size) {
         do_tiling = true;
         tilesize = ts;
         return *this;
     }
-    MFItInfo& SetDynamic (bool f) noexcept {
+    MFItInfo& SetDynamic (bool f) {
         dynamic = f;
-        return *this;
-    }
-    MFItInfo& DisableDeviceSync () noexcept {
-        device_sync = false;
-        return *this;
-    }
-    MFItInfo& SetDeviceSync (bool f) noexcept {
-        device_sync = f;
-        return *this;
-    }
-    MFItInfo& SetNumStreams (int n) noexcept {
-        num_streams = n;
-        return *this;
-    }
-    MFItInfo& UseDefaultStream () noexcept {
-        num_streams = -1;
         return *this;
     }
 };
@@ -119,50 +100,50 @@ public:
     ~MFIter ();
 
     //! Return the tile Box at the current index.
-    Box tilebox () const noexcept;
+    Box tilebox () const;
 
     //! Return the tilebox with provided nodal flag
-    Box tilebox (const IntVect& nodal) const noexcept;
+    Box tilebox (const IntVect& nodal) const;
 
     //! Return the tilebox with provided nodal flag and grown cells
-    Box tilebox (const IntVect& nodal, const IntVect& ngrow) const noexcept;
+    Box tilebox (const IntVect& nodal, const IntVect& ngrow) const;
 
     //! Return the dir-nodal (or all nodal if dir<0) Box at the current index.
-    Box nodaltilebox (int dir=-1) const noexcept;
+    Box nodaltilebox (int dir=-1) const;
 
     //! Return the tile box at the current index grown to include ghost cells.
-    Box growntilebox (int ng=-1000000) const noexcept;
+    Box growntilebox (int ng=-1000000) const;
 
-    Box growntilebox (const IntVect& ng) const noexcept;
+    Box growntilebox (const IntVect& ng) const;
 
     //! Return the dir-nodal (or all nodal if dir<0) box grown to include ghost cells.
-    Box grownnodaltilebox (int dir=-1, int ng=-1000000) const noexcept;
+    Box grownnodaltilebox (int dir=-1, int ng=-1000000) const;
 
-    Box grownnodaltilebox (int dir, const IntVect& ng) const noexcept;
+    Box grownnodaltilebox (int dir, const IntVect& ng) const;
 
     //! Return the valid Box in which the current tile resides.
-    Box validbox () const noexcept { return fabArray.box((*index_map)[currentIndex]); }
+    Box validbox () const { return fabArray.box((*index_map)[currentIndex]); }
 
     //! Return the Box of the FAB at which we currently point.
-    Box fabbox () const noexcept { return fabArray.fabbox((*index_map)[currentIndex]); }
+    Box fabbox () const { return fabArray.fabbox((*index_map)[currentIndex]); }
 
     //! Increment iterator to the next tile we own.
-    void operator++ () noexcept;
+    void operator++ ();
 
     //! Is the iterator valid i.e. is it associated with a FAB?
-    bool isValid () const noexcept { return currentIndex < endIndex; }
+    bool isValid () const { return currentIndex < endIndex; }
 
     //! The index into the underlying BoxArray of the current FAB.
-    int index () const noexcept { return (*index_map)[currentIndex]; }
+    int index () const { return (*index_map)[currentIndex]; }
 
     //! The number of indices.
-    int length () const noexcept { return (endIndex - beginIndex); }
+    int length () const { return (endIndex - beginIndex); }
 
     //! The current local tile index in the current grid;
-    int LocalTileIndex () const noexcept {return local_tile_index_map ? (*local_tile_index_map)[currentIndex] : 0;}
+    int LocalTileIndex () const {return local_tile_index_map ? (*local_tile_index_map)[currentIndex] : 0;}
 
     //! The the number of tiles in the current grid;
-    int numLocalTiles() const noexcept {return num_local_tiles ? (*num_local_tiles)[currentIndex] : 1;}
+    int numLocalTiles() const {return num_local_tiles ? (*num_local_tiles)[currentIndex] : 1;}
 
 #ifdef AMREX_USE_GPU
     //! Maintain a list of values to reduce.
@@ -179,14 +160,14 @@ public:
     * \brief Return local index into the vector of fab pointers, m_fabs_v
     * When AllBoxes is on, local_index_map is a nullptr and local index is current index.
     */
-    int LocalIndex () const noexcept { return local_index_map ? (*local_index_map)[currentIndex] : currentIndex; }
+    int LocalIndex () const { return local_index_map ? (*local_index_map)[currentIndex] : currentIndex; }
 
     //! Constant reference to FabArray over which we're iterating.
-    const FabArrayBase& theFabArrayBase () const noexcept { return fabArray; }
+    const FabArrayBase& theFabArrayBase () const { return fabArray; }
 
-    int tileIndex () const noexcept {return currentIndex;}
+    int tileIndex () const {return currentIndex;}
 
-    const DistributionMapping& DistributionMap () const noexcept { return fabArray.DistributionMap(); }
+    const DistributionMapping& DistributionMap () const { return fabArray.DistributionMap(); }
 
 protected:
 
@@ -200,11 +181,9 @@ protected:
     int           currentIndex;
     int           beginIndex;
     int           endIndex;
-    int           streams;
     IndexType     typ;
 
     bool          dynamic;
-    bool          device_sync = true;
 
     const Vector<int>* index_map;
     const Vector<int>* local_index_map;
@@ -239,14 +218,7 @@ private:
     FabArrayBase::TileArray lta;
 };
 
-//! Is it safe to have these two MultiFabs in the same MFiter?
-//! Ture means safe; false means maybe.
-inline bool isMFIterSafe (const FabArrayBase& x, const FabArrayBase& y) {
-    return x.DistributionMap() == y.DistributionMap()
-        && BoxArray::SameRefs(x.boxArray(), y.boxArray());
-}
-
-inline Arena* The_MFIter_Arena () noexcept { return The_Device_Arena(); }
+inline Arena* The_MFIter_Arena () { return The_Device_Arena(); }
 
 }
 

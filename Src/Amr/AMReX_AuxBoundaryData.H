@@ -11,7 +11,7 @@ class AuxBoundaryData
 {
 public:
 
-    AuxBoundaryData () noexcept;
+    AuxBoundaryData ();
 
     AuxBoundaryData (const BoxArray& grids,
                      int             n_grow,
@@ -19,8 +19,6 @@ public:
                      const Geometry& geom);
 
     AuxBoundaryData (const AuxBoundaryData& rhs);
-
-    AuxBoundaryData& operator= (const AuxBoundaryData& rhs) = delete;
 
     void copyTo (MultiFab& destmf,
                  int       src_comp,
@@ -33,7 +31,7 @@ public:
                    int             num_comp,
 		   int             src_ng = 0);
 
-    size_t size () const noexcept
+    size_t size () const
     {
         BL_ASSERT(!m_empty); BL_ASSERT(m_initialized); return m_fabs.size();
     }
@@ -48,35 +46,44 @@ public:
                      int             n_comp,
                      const Geometry& geom);
 
-    const BoxArray& equivBoxArray () const noexcept
+    const BoxArray& equivBoxArray () const
     {
         BL_ASSERT(!m_empty); BL_ASSERT(m_initialized); return m_fabs.boxArray();
     }
 
     void setVal (Real r) { BL_ASSERT(m_initialized); if (!m_empty) m_fabs.setVal(r); }
 
-    const DistributionMapping& DistributionMap () const noexcept
+    const DistributionMapping& DistributionMap () const
     {
         BL_ASSERT(!m_empty); BL_ASSERT(m_initialized); return m_fabs.DistributionMap();
     }
 
-    FArrayBox&       operator[] (const MFIter& mfi) noexcept
+    FArrayBox&       operator[] (const MFIter& mfi)
     {
         BL_ASSERT(!m_empty); BL_ASSERT(m_initialized); return m_fabs[mfi];
     }
-    const FArrayBox& operator[] (const MFIter& mfi) const noexcept
+    const FArrayBox& operator[] (const MFIter& mfi) const
     {
         BL_ASSERT(!m_empty); BL_ASSERT(m_initialized); return m_fabs[mfi];
     }
 
-    int nGrow () const noexcept { BL_ASSERT(m_initialized); return m_ngrow; }
+    FArrayBox      * fabPtr (const MFIter& mfi)
+    {
+        BL_ASSERT(!m_empty); BL_ASSERT(m_initialized); return m_fabs.fabPtr(mfi);
+    }
+    FArrayBox const* fabPtr (const MFIter& mfi) const
+    {
+        BL_ASSERT(!m_empty); BL_ASSERT(m_initialized); return m_fabs.fabPtr(mfi);
+    }
 
-    int nComp () const noexcept
+    int nGrow () const { BL_ASSERT(m_initialized); return m_ngrow; }
+
+    int nComp () const
     {
         BL_ASSERT(!m_empty); BL_ASSERT(m_initialized); return m_fabs.nComp();
     }
 
-    bool isEmpty () const noexcept { return m_empty; }
+    bool isEmpty () const { return m_empty; }
 
 private:
 
@@ -84,6 +91,10 @@ private:
     int      m_ngrow;
     bool     m_empty;
     bool     m_initialized;
+    //
+    // Not defined -- but could be if it's needed.
+    //
+    AuxBoundaryData& operator= (const AuxBoundaryData& rhs);
 };
 // \endcond
 

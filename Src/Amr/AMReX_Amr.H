@@ -73,77 +73,73 @@ public:
     void FinalizeInit (Real strt_time, Real stop_time);
 
     //! Set the timestep on each level.
-    void setDtLevel (const Vector<Real>& dt_lev) noexcept;
+    void setDtLevel (const Vector<Real>& dt_lev);
 
     //! Set the timestep at one level.
-    void setDtLevel (Real dt, int lev) noexcept;
+    void setDtLevel (Real dt, int lev);
 
     //! Set the dtmin on each level.
-    void setDtMin (const Vector<Real>& dt_lev) noexcept;
+    void setDtMin (const Vector<Real>& dt_lev);
 
     //! Set the cycle count on each level.
-    void setNCycle (const Vector<int>& mss) noexcept;
+    void setNCycle (const Vector<int>& mss);
 
     //! Subcycle in time?
-    int subCycle () const noexcept { return sub_cycle; }
+    int subCycle () const { return sub_cycle; }
 
     //! How are we subcycling?
-    const std::string& subcyclingMode() const noexcept { return subcycling_mode; }
+    const std::string& subcyclingMode() const { return subcycling_mode; }
 
     /**
     * \brief What is "level" in Amr::timeStep?  This is only relevant if we are still in Amr::timeStep;
     *      it is set back to -1 on leaving Amr::timeStep.
     */
-    int level_being_advanced () const noexcept { return which_level_being_advanced; }
+    int level_being_advanced () const { return which_level_being_advanced; }
     //! Physical time.
-    Real cumTime () const noexcept { return cumtime; }
-    void setCumTime (Real t) noexcept {cumtime = t;}
+    Real cumTime () const { return cumtime; }
+    void setCumTime (Real t) {cumtime = t;}
     //! Physical time this simulation started
-    Real startTime () const noexcept { return start_time; }
-    void setStartTime (Real t) noexcept {start_time = t;}
+    Real startTime () const { return start_time; }
+    void setStartTime (Real t) {start_time = t;}
     //! Time step at specified level.
-    Real dtLevel (int level) const noexcept { return dt_level[level]; }
+    Real dtLevel (int level) const { return dt_level[level]; }
     //! Max time step (typically based on physics) at specified level
-    Real dtMin (int level) const noexcept { return dt_min[level]; }
+    Real dtMin (int level) const { return dt_min[level]; }
     //! Array of time steps at all levels.
-    const Vector<Real>& dtLevel () const noexcept { return dt_level; }
+    const Vector<Real>& dtLevel () const { return dt_level; }
     //! Number of subcycled time steps.
-    int nCycle (int level) const noexcept { return n_cycle[level]; }
+    int nCycle (int level) const { return n_cycle[level]; }
     //! Number of time steps at specified level.
-    int levelSteps (int lev) const noexcept { return level_steps[lev]; }
+    int levelSteps (int lev) const { return level_steps[lev]; }
     //! Number of time steps at specified level.
-    void setLevelSteps (int lev, int n) noexcept { level_steps[lev] = n; }
+    void setLevelSteps (int lev, int n) { level_steps[lev] = n; }
     //! Which step are we at for the specified level?
-    int levelCount (int lev) const noexcept { return level_count[lev]; }
+    int levelCount (int lev) const { return level_count[lev]; }
     //! Which step are we at for the specified level?
-    void setLevelCount (int lev, int n) noexcept { level_count[lev] = n; }
+    void setLevelCount (int lev, int n) { level_count[lev] = n; }
     //! Whether to regrid right after restart
-    bool RegridOnRestart () const noexcept;
+    bool RegridOnRestart () const;
     //! Interval between regridding.
-    int regridInt (int lev) const noexcept { return regrid_int[lev]; }
+    int regridInt (int lev) const { return regrid_int[lev]; }
     //! Number of time steps between checkpoint files.
-    int checkInt () const noexcept { return check_int; }
+    int checkInt () const { return check_int; }
     //! Time between checkpoint files.
-    Real checkPer() const noexcept { return check_per; }
+    Real checkPer() const { return check_per; }
     //! Number of time steps between plot files.
-    int plotInt () const noexcept { return plot_int; }
+    int plotInt () const { return plot_int; }
     //! Time between plot files.
-    Real plotPer () const noexcept { return plot_per; }
-    //! Spacing in log10(time) of logarithmically spaced plot files
-    Real plotLogPer () const noexcept { return plot_log_per; }
+    Real plotPer () const { return plot_per; }
     //! Number of time steps between small plot files.
-    int smallplotInt () const noexcept { return small_plot_int; }
+    int smallplotInt () const { return small_plot_int; }
     //! Time between plot files.
-    Real smallplotPer () const noexcept { return small_plot_per; }
-    //! Spacing in log10(time) of logarithmically spaced small plot files
-    Real smallplotLogPer () const noexcept { return small_plot_log_per; }
+    Real smallplotPer () const { return small_plot_per; }
     /**
     * \brief The names of state variables to output in the
     * plotfile.  They can be set using the amr.plot_vars variable
     * in a ParmParse inputs file.
     */
-    static const std::list<std::string>& statePlotVars () noexcept { return state_plot_vars; }
-    static const std::list<std::string>& stateSmallPlotVars () noexcept { return state_small_plot_vars; }
+    static const std::list<std::string>& statePlotVars () { return state_plot_vars; }
+    static const std::list<std::string>& stateSmallPlotVars () { return state_small_plot_vars; }
     //! Is the string the name of a variable in state_plot_vars?
     static bool isStatePlotVar (const std::string& name);
     static bool isStateSmallPlotVar (const std::string& name);
@@ -168,11 +164,11 @@ public:
     * plotfile.  They can be set using the amr.derive_plot_vars
     * variable in a ParmParse inputs file.
     */
-    static const std::list<std::string>& derivePlotVars () noexcept { return derive_plot_vars; }
-    static const std::list<std::string>& deriveSmallPlotVars () noexcept { return derive_small_plot_vars; }
+    static const std::list<std::string>& derivePlotVars () { return derive_plot_vars; }
+    static const std::list<std::string>& deriveSmallPlotVars () { return derive_small_plot_vars; }
     //! Is the string the name of a variable in derive_plot_vars?
-    static bool isDerivePlotVar (const std::string& name) noexcept;
-    static bool isDeriveSmallPlotVar (const std::string& name) noexcept;
+    static bool isDerivePlotVar (const std::string& name);
+    static bool isDeriveSmallPlotVar (const std::string& name);
     /**
     * \brief If the string is not the name of a variable in
     * derive_plot_vars, add it to derive_plot_vars.
@@ -192,28 +188,28 @@ public:
     static void Initialize ();
     static void Finalize ();
     //! AmrLevel lev.
-    AmrLevel& getLevel (int lev) noexcept { return *amr_level[lev]; }
+    AmrLevel& getLevel (int lev) { return *amr_level[lev]; }
     //! Array of AmrLevels.
-    Vector<std::unique_ptr<AmrLevel> >& getAmrLevels () noexcept;
+    Vector<std::unique_ptr<AmrLevel> >& getAmrLevels ();
     //! Total number of cells.
-    long cellCount () noexcept;
+    long cellCount ();
     //! Number of cells at given level.
-    long cellCount (int lev) noexcept;
+    long cellCount (int lev);
     //! Total number of grids.
-    int numGrids () noexcept;
+    int numGrids ();
     //! Number of grids at given level.
-    int numGrids (int lev) noexcept;
+    int numGrids (int lev);
     //! More work to be done?
-    int okToContinue () noexcept;
+    int okToContinue ();
     //! Regrid only!
-    void RegridOnly (Real time, bool do_io = true);
+    void RegridOnly (Real time);
     //! Should we regrid this level?
-    bool okToRegrid (int level) noexcept;
+    bool okToRegrid (int level);
     //! Array of BoxArrays read in to initially define grid hierarchy
-    static const BoxArray& initialBa (int level) noexcept
+    static const BoxArray& initialBa (int level)
         { BL_ASSERT(level-1 < initial_ba.size()); return initial_ba[level-1]; }
     //! Number of levels at which the grids are initially specified
-    static int initialBaLevels () noexcept { return initial_ba.size(); }
+    static int initialBaLevels () { return initial_ba.size(); }
     //! Do a complete integration cycle.
     virtual void coarseTimeStep (Real stop_time);
 
@@ -225,15 +221,15 @@ public:
 				      int            lev,
 				      int            ngrow);
     //! Name of the restart chkpoint file.
-    const std::string& theRestartFile () const noexcept { return restart_chkfile; }
+    const std::string& theRestartFile () const { return restart_chkfile; }
     //! Name of the restart plotfile.
-    const std::string& theRestartPlotFile () const noexcept { return restart_pltfile; }
+    const std::string& theRestartPlotFile () const { return restart_pltfile; }
     //! The ith datalog file.  Do with it what you want.
     std::ostream& DataLog (int i);
     //! The filename of the ith datalog file.
-    const std::string DataLogName (int i) const noexcept { return datalogname[i]; }
+    const std::string DataLogName (int i) const { return datalogname[i]; }
     //! How many datalogs have been opened
-    int NumDataLogs () noexcept;
+    int NumDataLogs ();
     /**
     * \brief Compute the optimal subcycling pattern.
     * This assumes that anything less than cycle_max[i] is a valid
@@ -249,15 +245,15 @@ public:
 
     //! Write the plot file to be used for visualization.
     virtual void writePlotFile ();
-    int stepOfLastPlotFile () const noexcept {return last_plotfile;}
+    int stepOfLastPlotFile () const {return last_plotfile;}
     //! Write the small plot file to be used for visualization.
     virtual void writeSmallPlotFile ();
-    int stepOfLastSmallPlotFile () const noexcept {return last_smallplotfile;}
+    int stepOfLastSmallPlotFile () const {return last_smallplotfile;}
     //! Write current state into a chk* file.
     virtual void checkPoint ();
-    int stepOfLastCheckPoint () const noexcept {return last_checkpoint;}
+    int stepOfLastCheckPoint () const {return last_checkpoint;}
 
-    const Vector<BoxArray>& getInitialBA() noexcept;
+    const Vector<BoxArray>& getInitialBA();
 
     /**
     * \brief Specialized version:
@@ -268,7 +264,7 @@ public:
     void setBoundaryGeometry(BoundaryPointList& IntersectLoX,
                              BoundaryPointList& IntersectHiX,
                              BoundaryPointList& IntersectLoY,
-                             BoundaryPointList& IntersectHiY) noexcept
+                             BoundaryPointList& IntersectHiY)
     {
         intersect_lox = IntersectLoX;
         intersect_hix = IntersectHiX;
@@ -288,7 +284,7 @@ public:
                              BoundaryPointList& IntersectLoY,
                              BoundaryPointList& IntersectHiY,
                              BoundaryPointList& IntersectLoZ,
-                             BoundaryPointList& IntersectHiZ) noexcept
+                             BoundaryPointList& IntersectHiZ)
     {
         intersect_lox = IntersectLoX;
         intersect_hix = IntersectHiX;
@@ -298,27 +294,27 @@ public:
         intersect_hiz = IntersectHiZ;
     };
 
-    BoundaryPointList& getIntersectLoX() noexcept
+    BoundaryPointList& getIntersectLoX()
     {
         return intersect_lox;
     };
-    BoundaryPointList& getIntersectHiX() noexcept
+    BoundaryPointList& getIntersectHiX()
     {
         return intersect_hix;
     };
-    BoundaryPointList& getIntersectLoY() noexcept
+    BoundaryPointList& getIntersectLoY()
     {
         return intersect_loy;
     };
-    BoundaryPointList& getIntersectHiY() noexcept
+    BoundaryPointList& getIntersectHiY()
     {
         return intersect_hiy;
     };
-    BoundaryPointList& getIntersectLoZ() noexcept
+    BoundaryPointList& getIntersectLoZ()
     {
         return intersect_loz;
     };
-    BoundaryPointList& getIntersectHiZ() noexcept
+    BoundaryPointList& getIntersectHiZ()
     {
         return intersect_hiz;
     };
@@ -330,7 +326,7 @@ public:
 
     void InstallNewDistributionMap (int lev, const DistributionMapping& newdm);
 
-    bool UsingPrecreateDirectories () noexcept;
+    bool UsingPrecreateDirectories();
 
 protected:
 
@@ -384,8 +380,8 @@ protected:
 	{ amrex::Abort("How did we get her!"); }
 
     //! Whether to write a plotfile now
-    bool writePlotNow () noexcept;
-    bool writeSmallPlotNow () noexcept;
+    bool writePlotNow ();
+    bool writeSmallPlotNow ();
 
     void printGridInfo (std::ostream& os,
                         int           min_lev,
@@ -430,10 +426,8 @@ protected:
     int              last_smallplotfile;   //!< Step number of previous small plotfile.
     int              plot_int;        //!< How often plotfile (# of time steps)
     Real             plot_per;        //!< How often plotfile (in units of time)
-    Real             plot_log_per;    //!< How often plotfile (in units of log10(time))
     int              small_plot_int;  //!< How often small plotfile (# of time steps)
     Real             small_plot_per;  //!< How often small plotfile (in units of time)
-    Real             small_plot_log_per;  //!< How often small plotfile (in units of log10(time))
     int              write_plotfile_with_checkpoint;  //!< Write out a plotfile whenever we checkpoint
     int              file_name_digits; //!< How many digits to use in the plotfile and checkpoint names
     int              message_int;     //!< How often checking messages touched by user, such as "stop_run"
@@ -483,7 +477,6 @@ protected:
 public:
 #ifdef USE_PERILLA
     std::vector<std::vector<RegionGraph*> > graphArray;
-    std::vector<RegionGraph*> amrGraphArray;
     std::vector<RegionGraph*> &get_graphArray(int level){return graphArray[level];}
 #endif
 

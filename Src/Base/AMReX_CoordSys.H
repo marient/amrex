@@ -2,8 +2,6 @@
 #ifndef AMREX_COORDSYS_H_
 #define AMREX_COORDSYS_H_
 
-#include <limits>
-#include <AMReX.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Array.H>
 #include <AMReX_Vector.H>
@@ -31,10 +29,10 @@ public:
     friend std::istream& operator>> (std::istream&, CoordSys& );
 
     //! Default constructor to undefined state.
-    CoordSys () noexcept;
+    CoordSys ();
 
-//    //! Construct, specify a cell size, and low end of index range.
-//    explicit CoordSys (const Real* cell_dx) noexcept;
+    //! Construct, specify a cell size, and low end of index range.
+    explicit CoordSys (const Real* cell_dx);
 
     ~CoordSys () = default;
     CoordSys (const CoordSys& rhs) = default;
@@ -42,135 +40,133 @@ public:
     CoordSys& operator= (const CoordSys& rhs) = default;
     CoordSys& operator= (CoordSys&& rhs) = default;
 
-//    //! Initialize after construction.
-//    void define (const Real* cell_dx);
+    //! Initialize after construction.
+    void define (const Real* cell_dx);
 
     //! Set the CoordType.
-    void SetCoord (CoordType coord) noexcept { c_sys = coord; }
+    static void SetCoord (CoordType coord) { c_sys = coord; }
 
     //! Returns the CoordType.
-    CoordType Coord () const noexcept { return c_sys; }
+    static CoordType Coord ();
 
     //! Returns the CoordType as an int.
-    int CoordInt () const  noexcept { return static_cast<int>(c_sys); }
+    static int CoordInt ();
 
     //! Is CoordType == SPHERICAL?
-    bool IsSPHERICAL () const noexcept;
+    static bool IsSPHERICAL ();
 
     //! Is CoordType == RZ?
-    bool IsRZ () const noexcept;
+    static bool IsRZ ();
 
     //! Is CoordType == cartesion?
-    bool IsCartesian () const noexcept {
-        BL_ASSERT(c_sys != undef); return (c_sys == cartesian);
-    }
+    static bool IsCartesian () { BL_ASSERT(c_sys != undef); return (c_sys == cartesian); }
 
     //! Sets the offset for each coordinate direction.
-    void SetOffset (const Real* x_lo) noexcept;
+    static void SetOffset (const Real* x_lo);
 
     //! Returns the offset.
-    const Real* Offset () const noexcept { return offset; }
+    static const Real* Offset ()  { return offset; }
 
     //! Returns the offset for the specified coordinate direction.
-    Real Offset (int dir) const noexcept { return offset[dir]; }
+    static Real Offset (int dir) { return offset[dir]; }
 
     //! Returns the cellsize for each coordinate direction.
-    const Real* CellSize () const noexcept { BL_ASSERT(ok); return dx; }
+    const Real* CellSize () const { BL_ASSERT(ok); return dx; }
 
     //! Returns the cellsize for the specified coordinate direction.
-    Real CellSize (int dir) const noexcept { BL_ASSERT(ok); return dx[dir]; }
+    Real CellSize (int dir) const { BL_ASSERT(ok); return dx[dir]; }
 
-    GpuArray<Real,AMREX_SPACEDIM> CellSizeArray () const noexcept {
+    GpuArray<Real,AMREX_SPACEDIM> CellSizeArray () const {
         BL_ASSERT(ok);
         return { AMREX_D_DECL(dx[0],dx[1],dx[2]) };
     }
 
     //! Returns the inverse cellsize for each coordinate direction.
-    const Real* InvCellSize () const noexcept { BL_ASSERT(ok); return inv_dx; }
+    const Real* InvCellSize () const { BL_ASSERT(ok); return inv_dx; }
 
     //! Returns the inverse cellsize for the specified coordinate direction.
-    Real InvCellSize (int dir) const noexcept { BL_ASSERT(ok); return inv_dx[dir]; }
+    Real InvCellSize (int dir) const { BL_ASSERT(ok); return inv_dx[dir]; }
 
-    GpuArray<Real,AMREX_SPACEDIM> InvCellSizeArray () const noexcept {
+    GpuArray<Real,AMREX_SPACEDIM> InvCellSizeArray () const {
         BL_ASSERT(ok);
         return { AMREX_D_DECL(inv_dx[0],inv_dx[1],inv_dx[2]) };
     }
 
     //! Returns location of cell center in specified direction.
-    Real CellCenter (int point, int dir) const noexcept
+    Real CellCenter (int point, int dir) const
     {
         BL_ASSERT(ok); return offset[dir] + dx[dir]*(0.5+ (Real)point);
     }
 
     //! Return location of cell center.
-    void CellCenter (const IntVect& point, Vector<Real>& loc) const noexcept;
+    void CellCenter (const IntVect& point, Vector<Real>& loc) const;
 
     //! Return location of cell center.
-    void CellCenter (const IntVect& point, Real* loc) const noexcept;
+    void CellCenter (const IntVect& point, Real* loc) const;
 
     //! Returns location of lo edge in specified direction.
-    Real LoEdge (int point, int dir) const noexcept
+    Real LoEdge (int point, int dir) const
     {
         BL_ASSERT(ok); return offset[dir] + dx[dir]*point;
     }
 
     //! Equivalent to LoEdge(point[dir], dir).
-    Real LoEdge (const IntVect& point, int dir) const noexcept
+    Real LoEdge (const IntVect& point, int dir) const
     {
         BL_ASSERT(ok); return offset[dir] + dx[dir]*point[dir];
     }
 
     //! Returns location of hi edge in specified direction.
-    Real HiEdge (int point, int dir) const noexcept
+    Real HiEdge (int point, int dir) const
     {
         BL_ASSERT(ok); return offset[dir] + dx[dir]*(point + 1);
     }
 
     //! Equivalent to HiEdge(point[dir], dir).
-    Real HiEdge (const IntVect& point, int dir) const noexcept
+    Real HiEdge (const IntVect& point, int dir) const
     {
         BL_ASSERT(ok); return offset[dir] + dx[dir]*(point[dir] + 1);
     }
 
     //! Sets location of lo face into loc.
-    void LoFace (const IntVect& point, int dir, Vector<Real>& loc) const noexcept;
+    void LoFace (const IntVect& point, int dir, Vector<Real>& loc) const;
 
     //! Sets location of lo face into loc.
-    void LoFace (const IntVect& point, int dir, Real* loc) const noexcept;
+    void LoFace (const IntVect& point, int dir, Real* loc) const;
 
     //! Sets location of hi face into loc.
-    void HiFace (const IntVect& point, int dir, Vector<Real>& loc) const noexcept;
+    void HiFace (const IntVect& point, int dir, Vector<Real>& loc) const;
 
     //! Sets location of hi face into loc.
-    void HiFace (const IntVect& point, int dir, Real* loc) const noexcept;
+    void HiFace (const IntVect& point, int dir, Real* loc) const;
 
     //! Return location of lower left hand corner.
-    void LoNode (const IntVect& point, Vector<Real>& loc) const noexcept;
+    void LoNode (const IntVect& point, Vector<Real>& loc) const;
 
     //! Return location of lower left hand corner.
-    void LoNode (const IntVect& point, Real* loc) const noexcept;
+    void LoNode (const IntVect& point, Real* loc) const;
 
     //! Return location of upper right hand corner.
-    void HiNode (const IntVect& point, Vector<Real>& loc) const noexcept;
+    void HiNode (const IntVect& point, Vector<Real>& loc) const;
 
     //! Return location of upper right hand corner.
-    void HiNode (const IntVect& point, Real* loc) const noexcept;
+    void HiNode (const IntVect& point, Real* loc) const;
     /**
     * \brief Returns cell centered index of cell containing point.
     * This may return undesired results if point
     * is on a cell boundary.
     */
-    IntVect CellIndex (const Real* point) const noexcept;
+    IntVect CellIndex (const Real* point) const;
     /**
     * \brief Returns node centered index of lower left hand corner of
     * cell containing this point.
     */
-    IntVect LowerIndex (const Real* point) const noexcept;
+    IntVect LowerIndex (const Real* point) const;
     /**
     * \brief Returns node centered index of upper right hand corner of
     * cell containing this point.
     */
-    IntVect UpperIndex (const Real* point) const noexcept;
+    IntVect UpperIndex (const Real* point) const;
     /**
     * \brief Compute cell volumes in given region and place them into
     * input FAB.
@@ -182,6 +178,12 @@ public:
     */
     void GetVolume (FArrayBox& vol, const Box& region) const;
     /**
+    * \brief Compute cell volumes in given region and place them into
+    * new()d FAB.  It is the user's respoinsibility to delete
+    * the returned FAB.
+    */
+    FArrayBox* GetVolume (const Box& region) const;
+    /**
     * \brief Compute d(log(A))/dr at cell centers in given region and
     * place them into input FAB.
     */
@@ -191,6 +193,13 @@ public:
     * return the results in the resize()d input FAB.
     */
     void GetDLogA (FArrayBox& dloga, const Box& region, int dir) const;
+
+    /**
+    * \brief Compute d(log(A))/dr at cell centers in given region and
+    * return the results in a new()d FAB.  It is the user's
+    * responsibility to delete the returned FAB.
+    */
+    FArrayBox* GetDLogA (const Box& region, int dir) const;
 
     //! Return the volume of the specified cell.
     Real Volume (const IntVect& point) const;
@@ -211,11 +220,18 @@ public:
     */
     void GetFaceArea (FArrayBox& area, const Box& region, int dir) const;
 
+    /**
+    * \brief Compute area of cell faces in given region and given
+    * index direction and return the result in new()d FAB.
+    * It is the user's responsibility to delete the FAB.
+    */
+    FArrayBox* GetFaceArea (const Box& region, int dir) const;
+
     //! Returns lo face area of given cell in direction dir.
-    Real AreaLo (const IntVect& point, int dir) const noexcept;
+    Real AreaLo (const IntVect& point, int dir) const;
 
     //! Returns hi face area of given cell in direction dir.
-    Real AreaHi (const IntVect& point, int dir) const noexcept;
+    Real AreaHi (const IntVect& point, int dir) const;
 
     /**
     * \brief Return array of physical locations of cell edges
@@ -242,21 +258,19 @@ public:
     void GetCellVolCoord (Vector<Real>& loc, const Box& region, int dir) const;
 
 protected:
-    // c_sys and offset used to be static
-    CoordType c_sys = undef;
-    Real      offset[AMREX_SPACEDIM];
+    //! Static data.
+    static CoordType c_sys;
+    static Real      offset[AMREX_SPACEDIM];
 
-    Real dx[AMREX_SPACEDIM] = {AMREX_D_DECL(0.,0.,0.)};
-    Real inv_dx[AMREX_SPACEDIM]
-        = {AMREX_D_DECL(std::numeric_limits<Real>::infinity(),
-                        std::numeric_limits<Real>::infinity(),
-                        std::numeric_limits<Real>::infinity())};
-    bool ok = false;
+    //! Non-static data.
+    Real dx[AMREX_SPACEDIM];
+    Real inv_dx[AMREX_SPACEDIM];
+    bool ok;
 };
 
 inline
 bool
-CoordSys::IsSPHERICAL () const noexcept
+CoordSys::IsSPHERICAL ()
 {
     BL_ASSERT(c_sys != undef);
 #if (AMREX_SPACEDIM <= 2)
@@ -269,7 +283,7 @@ CoordSys::IsSPHERICAL () const noexcept
 
 inline
 bool
-CoordSys::IsRZ () const noexcept
+CoordSys::IsRZ ()
 {
     BL_ASSERT(c_sys != undef);
 #if (AMREX_SPACEDIM <= 2)

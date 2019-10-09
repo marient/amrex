@@ -34,22 +34,22 @@ public:
 
     using std::vector<T, Allocator>::vector;
 
-    T& operator[] (std::size_t i) noexcept
+    T& operator[] (std::size_t i)
     {
-      BL_ASSERT( i < (this->std::vector<T, Allocator>::size()) );
+	BL_ASSERT(static_cast<long>(i) < this->size());
 	return this->std::vector<T, Allocator>::operator[](i);
     }
 
-    const T& operator[] (std::size_t i) const noexcept
+    const T& operator[] (std::size_t i) const
     {
-      BL_ASSERT( i < (this->std::vector<T, Allocator>::size()) );
+	BL_ASSERT(static_cast<long>(i) < this->size());
 	return this->std::vector<T, Allocator>::operator[](i);
     }
 
     //! get access to the underlying data pointer
-    T* dataPtr () noexcept { return this->data(); }
+    T* dataPtr () { return this->data(); }
     //! get access to the underlying data pointer
-    const T* dataPtr () const noexcept { return this->data(); }
+    const T* dataPtr () const { return this->data(); }
 
     long size() const {return static_cast<long>(std::vector<T, Allocator>::size());}
 
@@ -169,82 +169,10 @@ namespace amrex
     /////////////////////////////////////////////////////////////
 
     template <class T> 
-    void RemoveDuplicates (Vector<T>& vec) {
+    void RemoveDuplicates(Vector<T>& vec) {
         std::sort(vec.begin(), vec.end());
         auto it = std::unique(vec.begin(), vec.end());
         vec.erase(it, vec.end());
-    }
-
-    namespace detail {
-        template <class T, class H>
-        std::size_t removeDupDoit (Vector<T>& vec, std::size_t start, std::size_t stop)
-        {
-            std::size_t N = stop-start;
-            if (N < 2) return stop;
-
-            T* const data = vec.data() + start;
-            T const sentinel = data[0];
-            H const hasher;
-            for (std::size_t i = 1; i < N; ) {
-                if (data[i] == sentinel) {
-                    ++i;
-                    continue;
-                }
-
-                std::size_t const hash = hasher(data[i]) % N;
-                if (i == hash) {
-                    ++i;
-                    continue;
-                }
-
-                if (data[i] == data[hash]) {
-                    data[i] = sentinel;
-                    ++i;
-                    continue;
-                }
-
-                if (data[hash] == sentinel) {
-                    std::swap(data[hash], data[i]);
-                    ++i;
-                    continue;
-                }
-
-                std::size_t const hashhash = hasher(data[hash]) % N;
-                if (hashhash != hash) {
-                    std::swap(data[i], data[hash]);
-                    if (hash < i) {
-                        ++i;
-                    }
-                } else {
-                    ++i;
-                }
-            }
-
-            std::size_t swapPos = 0;
-            for (std::size_t i = 0; i < N; ++i) {
-                if (data[i] != sentinel and i == hasher(data[i]) % N) {
-                    std::swap(data[i], data[swapPos++]);
-                }
-            }
-
-            std::size_t sentinelPos = N;
-            for (std::size_t i = swapPos; i < sentinelPos; ) {
-                if(data[i] == sentinel) {
-                    std::swap(data[i], data[--sentinelPos]);
-                } else {
-                    ++i;
-                }
-            }
-
-            return detail::removeDupDoit<T,H>(vec, start+swapPos, start+sentinelPos+1);
-        }
-    }
-
-    template <class T, class H>
-    void RemoveDuplicates (Vector<T>& vec) {
-        // https://stackoverflow.com/questions/1532819/algorithm-efficient-way-to-remove-duplicate-integers-from-an-array
-        std::size_t pos = detail::removeDupDoit<T,H>(vec, 0, vec.size());
-        vec.erase(vec.begin()+pos, vec.end());
     }
 }
 

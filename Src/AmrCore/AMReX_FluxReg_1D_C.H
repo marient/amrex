@@ -13,24 +13,30 @@ namespace amrex {
 * region.
 *
 * \param bx
-* \param reg
+* \param regfab
 * \param rcomp
-* \param flx
+* \param flxfab
 * \param fcomp
 * \param ncomp
 * \param ratio
 * \param mult
 */
 AMREX_GPU_HOST_DEVICE inline void
-fluxreg_fineadd (Box const& bx, Array4<Real> const& reg, const int rcomp,
-                 Array4<Real const> const& flx, const int fcomp, const int ncomp,
-                 const int /*dir*/, Dim3 const& ratio, const Real mult) noexcept
+fluxreg_fineadd (Box const& bx, FArrayBox& regfab, const int rcomp,
+                 FArrayBox const& flxfab, const int fcomp, const int ncomp,
+                 const int /*dir*/, IntVect const& ratio, const Real mult)
 {
     const auto lo  = amrex::lbound(bx);
+    const auto hi  = amrex::ubound(bx);
+    const auto reg = regfab.view(lo,rcomp);
+
+    const auto flo = amrex::lbound(flxfab.box());
+    const auto flx = flxfab.view(flo,fcomp);
+
     const int ic = lo.x;
-    const int i = ic*ratio.x;
+    const int i = ic*ratio[0];
     for (int n = 0; n < ncomp; ++n) {
-        reg(ic,0,0,n+rcomp) += mult * flx(i,0,0,n+fcomp);
+        reg(ic-lo.x,0,0,n) += mult * flx(i-flo.x,0,0,n);
     }
 }
 
@@ -42,46 +48,57 @@ fluxreg_fineadd (Box const& bx, Array4<Real> const& reg, const int rcomp,
 * region.
 *
 * \param bx
-* \param reg
+* \param regfab
 * \param rcomp
-* \param area
-* \param flx
+* \param areafab
+* \param flxfab
 * \param fcomp
 * \param ncomp
 * \param ratio
 * \param mult
 */
 AMREX_GPU_HOST_DEVICE inline void
-fluxreg_fineareaadd (Box const& bx, Array4<Real> const& reg, const int rcomp,
-                     Array4<Real const> const& area,
-                     Array4<Real const> const& flx, const int fcomp, const int ncomp,
-                     const int /*dir*/, Dim3 const& ratio, const Real mult) noexcept
+fluxreg_fineareaadd (Box const& bx, FArrayBox& regfab, const int rcomp,
+                     FArrayBox const& areafab,
+                     FArrayBox const& flxfab, const int fcomp, const int ncomp,
+                     const int /*dir*/, IntVect const& ratio, const Real mult)
 {
     const auto lo  = amrex::lbound(bx);
+    const auto hi  = amrex::ubound(bx);
+    const auto reg = regfab.view(lo,rcomp);
+
+    const auto flo = amrex::lbound(flxfab.box());
+    const auto flx = flxfab.view(flo,fcomp);
+    const auto area = areafab.view(flo);
+
     const int ic = lo.x;
-    const int i = ic*ratio.x;
+    const int i = ic*ratio[0];
     for (int n = 0; n < ncomp; ++n) {
-        reg(ic,0,0,n+rcomp) += mult * area(i,0,0) * flx(i,0,0,n+fcomp);
+        reg(ic-lo.x,0,0,n) += mult * area(i-flo.x,0,0) * flx(i-flo.x,0,0,n);
     }
 }
 
 AMREX_GPU_HOST_DEVICE inline void
-fluxreg_reflux (Box const& bx, Array4<Real> const& s, const int scomp,
-                Array4<Real const> const& f, Array4<Real const> const& v,
-                const int ncomp, const Real mult, const Orientation face) noexcept
+fluxreg_reflux (Box const& bx, FArrayBox& sfab, const int scomp,
+                FArrayBox const& ffab, FArrayBox const& vfab,
+                const int ncomp, const Real mult, const Orientation face)
 {
+    const auto len = amrex::length(bx);
     const auto lo  = amrex::lbound(bx);
-    const auto hi  = amrex::ubound(bx);
+    const auto s = sfab.view(lo,scomp);
+    const auto f = ffab.view(lo);
+    const auto v = vfab.view(lo);
+
     if (face.isLow()) {
         for (int n = 0; n < ncomp; ++n) {
-            for (int i = lo.x; i <= hi.x; ++i) {
-                s(i,0,0,n+scomp) += -mult*f(i+1,0,0,n)/v(i,0,0);
+            for (int i = 0; i < len.x; ++i) {
+                s(i,0,0,n) += -mult*f(i+1,0,0,n)/v(i,0,0);
             }
         }
     } else {
         for (int n = 0; n < ncomp; ++n) {
-            for (int i = lo.x; i <= hi.x; ++i) {
-                s(i,0,0,n+scomp) += mult*f(i,0,0,n)/v(i,0,0);
+            for (int i = 0; i < len.x; ++i) {
+                s(i,0,0,n) += mult*f(i,0,0,n)/v(i,0,0);
             }
         }
     }

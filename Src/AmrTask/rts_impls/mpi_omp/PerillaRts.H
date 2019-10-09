@@ -1,22 +1,8 @@
-#ifndef _PERILLA_RTS_
-#define _PERILLA_RTS_
-
 #include <AMReX_Amr.H>
 #include <PerillaConfig.H>
 
 
 namespace perilla{
-
-struct _workerThreadInfo{
-    int _tid; //thread id in local group
-    int _size; //number of threads in the group
-};
-
-struct _threadInfo{
-    bool _isComm; //whether this thread handles communication
-    int _wtid; //worker thread id (-1 if this thread is decicated to communication)
-    int _nWts; //number of thread groups
-};
 
 class RTS
 {
@@ -46,5 +32,3 @@ class RTS
 };
 
 }
-
-#endif

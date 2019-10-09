@@ -30,7 +30,7 @@ Periodicity::shiftIntVect () const
 }
 
 Box
-Periodicity::Domain () const noexcept
+Periodicity::Domain () const
 {
     Box pdomain;
     for (int i = 0; i < AMREX_SPACEDIM; ++i) {
@@ -46,7 +46,7 @@ Periodicity::Domain () const noexcept
 }
 
 const Periodicity&
-Periodicity::NonPeriodic () noexcept
+Periodicity::NonPeriodic ()
 {
     static const Periodicity np(IntVect(AMREX_D_DECL(0,0,0)));
     return np;

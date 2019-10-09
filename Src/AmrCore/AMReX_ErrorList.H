@@ -122,7 +122,6 @@ public:
         *
         * \param inFunc
         */
-        // No explicit because some codes rely on it.
         ErrorFunc (ErrorFuncDefault inFunc);
 
         /**
@@ -130,7 +129,6 @@ public:
         *
         * \param inFunc
         */
-        // No explicit because some codes rely on it.
         ErrorFunc (ErrorFunc3DDefault inFunc);
 
         /**
@@ -224,7 +222,6 @@ public:
         *
         * \param inFunc
         */
-        // No explicit because some codes rely on it.
         ErrorFunc2 (ErrorFunc2Default inFunc);
 
         /**
@@ -291,17 +288,17 @@ public:
     /**
     * \brief The name of the quantity to derive.
     */
-    const std::string& name () const noexcept;
+    const std::string& name () const;
 
     /**
     * \brief The number of extra zones needed for derivation.
     */
-    int nGrow () const noexcept;
+    int nGrow () const;
 
     /**
     * \brief The type of the error tagging.
     */
-    ErrorType errType () const noexcept;
+    ErrorType errType () const;
 
     /**
     * \brief The extern "C" functions to do the error tagging.
@@ -335,12 +332,12 @@ private:
 class ErrorList
 {
 public:
-    ErrorList() noexcept {}
+    ErrorList() {}
 
     /**
     * \brief The number of ErrorRecs in the list.
     */
-    int size () const noexcept;
+    int size () const;
 
     /**
     * \brief Append a new ErrorRec to the list.
@@ -361,7 +358,7 @@ public:
               const ErrorRec::ErrorFunc2&   func);
 
     //! The kth ErrorRec.
-    const ErrorRec& operator[] (int k) const noexcept;
+    const ErrorRec& operator[] (int k) const;
 
     void clear (bool rs0 = false) { vec.clear(); if(rs0) { vec.resize(0); } }
 

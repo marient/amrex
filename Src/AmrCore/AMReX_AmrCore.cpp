@@ -40,20 +40,8 @@ AmrCore::AmrCore ()
     InitAmrCore();
 }
 
-AmrCore::AmrCore (const RealBox* rb, int max_level_in,
-                  const Vector<int>& n_cell_in, int coord,
-                  Vector<IntVect> ref_ratios, const int* is_per)
-    : AmrMesh(rb, max_level_in, n_cell_in, coord, std::move(ref_ratios), is_per)
-{
-    Initialize();
-    InitAmrCore();
-}
-
-AmrCore::AmrCore (const RealBox& rb, int max_level_in,
-                  const Vector<int>& n_cell_in, int coord,
-                  Vector<IntVect> const& ref_ratios,
-                  Array<int,AMREX_SPACEDIM> const& is_per)
-    : AmrMesh(rb, max_level_in, n_cell_in, coord, ref_ratios, is_per)
+AmrCore::AmrCore (const RealBox* rb, int max_level_in, const Vector<int>& n_cell_in, int coord)
+    : AmrMesh(rb, max_level_in, n_cell_in, coord)
 {
     Initialize();
     InitAmrCore();
@@ -123,7 +111,7 @@ AmrCore::regrid (int lbase, Real time, bool)
 
 
 void
-AmrCore::printGridSummary (std::ostream& os, int min_lev, int max_lev) const noexcept
+AmrCore::printGridSummary (std::ostream& os, int min_lev, int max_lev) const
 {
     for (int lev = min_lev; lev <= max_lev; lev++)
     {
@@ -131,7 +119,7 @@ AmrCore::printGridSummary (std::ostream& os, int min_lev, int max_lev) const noe
         int                       numgrid = bs.size();
         long                      ncells  = bs.numPts();
         double                    ntot    = Geom(lev).Domain().d_numPts();
-        Real                      frac    = 100.0_rt*(Real(ncells) / ntot);
+        Real                      frac    = 100.0*(Real(ncells) / ntot);
 
         os << "  Level "
            << lev
@@ -149,8 +137,7 @@ AmrCore::printGridSummary (std::ostream& os, int min_lev, int max_lev) const noe
 	    long vmax = -1;
 	    int lmax = -1;
 	    int smin = std::numeric_limits<int>::max();
-            int imax = std::numeric_limits<int>::lowest();
-            int imin = std::numeric_limits<int>::lowest();
+	    int imax, imin;
 #ifdef _OPENMP
 #pragma omp parallel
 #endif	    
@@ -159,8 +146,7 @@ AmrCore::printGridSummary (std::ostream& os, int min_lev, int max_lev) const noe
 		long vmax_this = -1;
 		int lmax_this = -1;
 		int smin_this = std::numeric_limits<int>::max();
-                int imax_this = std::numeric_limits<int>::lowest();
-                int imin_this = std::numeric_limits<int>::lowest();
+		int imax_this, imin_this;
 #ifdef _OPENMP
 #pragma omp for
 #endif	    	    

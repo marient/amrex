@@ -15,25 +15,25 @@ namespace amrex {
 class Periodicity
 {
 public:
-    Periodicity () noexcept : period(AMREX_D_DECL(0,0,0)) {}
-    explicit Periodicity (const IntVect& v) noexcept : period(v) {}
+    Periodicity () : period(AMREX_D_DECL(0,0,0)) {}
+    explicit Periodicity (const IntVect& v) : period(v) {}
 
-    bool isAnyPeriodic () const noexcept
+    bool isAnyPeriodic () const
 	{ return AMREX_D_TERM(period[0]>0, || period[1]>0, || period[2]>0); }
-    bool isAllPeriodic () const noexcept
+    bool isAllPeriodic () const
 	{ return AMREX_D_TERM(period[0]>0, && period[1]>0, && period[2]>0); }
-    bool isPeriodic (int dir) const noexcept
+    bool isPeriodic (int dir) const
 	{ return period[dir]>0; }
 
-    bool operator==(const Periodicity& rhs) const noexcept
+    bool operator==(const Periodicity& rhs) const
 	{ return period == rhs.period; }
 
     //! Cell-centered domain Box "infinitely" long in non-periodic directions.
-    Box Domain () const noexcept;
+    Box Domain () const; 
     
     std::vector<IntVect> shiftIntVect () const;
 
-    static const Periodicity& NonPeriodic () noexcept;
+    static const Periodicity& NonPeriodic ();
 
 private:
     IntVect period;

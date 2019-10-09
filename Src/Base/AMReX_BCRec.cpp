@@ -12,7 +12,7 @@ setBC (const Box&           bx,
        int                  dest_comp,
        int                  ncomp,
        const Vector<BCRec>& bc_dom,
-       Vector<BCRec>&       bcr) noexcept
+       Vector<BCRec>&       bcr)
 {
     const int* bxlo = bx.loVect();
     const int* bxhi = bx.hiVect();

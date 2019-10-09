@@ -11,10 +11,6 @@
 #include <AMReX_FabArrayUtility.H>
 #include <AMReX_Periodicity.H>
 
-#ifdef AMREX_USE_EB
-#include <AMReX_EBMultiFabUtil.H>
-#endif
-
 namespace amrex
 {
 
@@ -27,7 +23,7 @@ class iMultiFab;
  * a union of rectangular regions embedded in a uniform index space.
  * MultiFab class extends the function of the underlying FabArray class just
  * as the FArrayBox class extends the funtion of BaseFab<Real>.
- * Additional member functions are defined for I/O and simple arithmetic operations on these aggregate objects.
+ *Additional member functions are defined for I/O and simple arithmetic operations on these aggregate objects.
  * This class does NOT provide a copy constructor or assignment operator.
  */
 
@@ -41,7 +37,7 @@ public:
     * time using the define member functions inherited
     * from FabArray.
     */
-    MultiFab () noexcept;
+    MultiFab ();
     /**
     * \brief
     * Constructs a MultiFab
@@ -122,6 +118,9 @@ public:
 
     void operator= (Real r);
     //
+    //! Initialize FArrayBoxes
+    void initVal ();
+    //
     /**
     * \brief Returns the minimum value contained in component comp of the
     * MultiFab.  The parameter nghost determines the number of
@@ -160,30 +159,21 @@ public:
     * \brief Returns the maximum *absolute* value contained in
     * component comp of the MultiFab.
     */
-    Real norm0 (int comp = 0, int nghost = 0, bool local = false, bool set_covered = false ) const;
-    Real norminf (int comp = 0, int nghost = 0, bool local = false, bool set_covered = false ) const {
-        return norm0(comp,nghost,local,set_covered);
-    }
+    Real norm0 (int comp = 0, int nghost = 0, bool local = false) const;
 
     Real norm0 (const iMultiFab& mask, int comp = 0, int nghost = 0, bool local = false) const;
-    Real norminf (const iMultiFab& mask, int comp = 0, int nghost = 0, bool local = false) const {
-        return norm0(mask,comp,nghost,local);
-    }
 
     /**
     * \brief Returns the maximum *absolute* values contained in
     * each component of "comps" of the MultiFab.  No ghost cells are used.
     */
-    Vector<Real> norm0 (const Vector<int>& comps, int nghost = 0, bool local = false, bool set_covered = false ) const;
-    Vector<Real> norminf (const Vector<int>& comps, int nghost = 0, bool local = false, bool set_covered = false) const {
-        return norm0(comps,nghost,local,set_covered);
-    }
 
+    Vector<Real> norm0 (const Vector<int>& comps, int nghost = 0, bool local = false) const;
     /**
     * \brief Returns the L1 norm of component "comp" over the MultiFab.
     * No ghost cells are used.  This version has no double counting for nodal data.
     */
-    Real norm1 (int comp, const Periodicity& period, bool set_covered = false) const;
+    Real norm1 (int comp, const Periodicity& period) const;
     /**
     * \brief Returns the L1 norm of component "comp" over the MultiFab.
     * ngrow ghost cells are used.
@@ -423,12 +413,6 @@ public:
 		     const MultiFab& y, int ycomp,
 		     int num_comp, int nghost, bool local = false);
 
-    /**
-    * \brief Returns the dot product of a MultiFab with itself.
-    */
-    static Real Dot (const MultiFab& x, int xcomp,
-		     int num_comp, int nghost, bool local = false);
-
     static Real Dot (const iMultiFab& mask,
                      const MultiFab& x, int xcomp,
 		     const MultiFab& y, int ycomp,
@@ -583,8 +567,8 @@ public:
     * This version checks all components and grow cells.
     */
     bool contains_nan (bool local=false) const;
+
     bool contains_nan (int scomp, int ncomp, int ngrow = 0, bool local=false) const;
-    bool contains_nan (int scomp, int ncomp, const IntVect& ngrow, bool local=false) const;
     /**
     * \brief Are there any Infs in the MF?
     * This may return false, even if the MF contains Infs, if the machine
@@ -592,34 +576,27 @@ public:
     * This version checks all components and grow cells.
     */
     bool contains_inf (bool local=false) const;
-    bool contains_inf (int scomp, int ncomp, int ngrow = 0, bool local=false) const;
-    bool contains_inf (int scomp, int ncomp, const IntVect& ngrow, bool local=false) const;
 
     /**
     * \brief This tests on whether the MultiFab is fully nodal.
     */
-    bool is_nodal () const noexcept;
+    bool is_nodal () const;
     /**
     * \brief This tests on whether the MultiFab is nodal in direction dir.
     */
-    bool is_nodal (int dir) const noexcept;
+    bool is_nodal (int dir) const;
     /**
     * \brief This tests on whether the MultiFab is cell-centered.
     */
-    bool is_cell_centered () const noexcept;
+    bool is_cell_centered () const;
 
+    bool contains_inf (int scomp, int ncomp, int ngrow = 0, bool local=false) const;
     /**
-    * \brief Sum values in overlapped cells.  The destination is limited to valid cells.
+    * \brief Sum ghost cells that are covered by valid cells into the valid cells.
     */
     void SumBoundary (const Periodicity& period = Periodicity::NonPeriodic());
 
     void SumBoundary (int scomp, int ncomp, const Periodicity& period = Periodicity::NonPeriodic());
-
-    /**
-    * \brief Sum values in overlapped cells.  The destination is limited to valid + ngrow cells.
-    */
-    void SumBoundary (int scomp, int ncomp, IntVect const& ngrow,
-                      const Periodicity& period = Periodicity::NonPeriodic());
 
     /**
      * \brief Return a mask indicating how many duplicates are in each point.
@@ -644,8 +621,6 @@ private:
     //! Some useful typedefs.
     typedef FabArrayBase::CopyComTagsContainer CopyComTagsContainer;
     typedef FabArrayBase::MapOfCopyComTagContainers MapOfCopyComTagContainers;
-
-    void initVal ();
 };
 
 inline void GccPlacaterMF ()

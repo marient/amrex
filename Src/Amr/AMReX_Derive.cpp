@@ -7,13 +7,13 @@
 namespace amrex {
 
 Box
-DeriveRec::TheSameBox (const Box& box) noexcept
+DeriveRec::TheSameBox (const Box& box)
 {
     return box;
 }
 
 Box
-DeriveRec::GrowBoxByOne (const Box& box) noexcept
+DeriveRec::GrowBoxByOne (const Box& box)
 {
     return amrex::grow(box,1);
 }
@@ -148,67 +148,67 @@ DeriveRec::~DeriveRec ()
 }
 
 const std::string&
-DeriveRec::name () const noexcept
+DeriveRec::name () const
 {
     return derive_name;
 }
 
 IndexType
-DeriveRec::deriveType () const noexcept
+DeriveRec::deriveType () const
 {
     return der_type;
 }
 
 DeriveFunc
-DeriveRec::derFunc () const noexcept
+DeriveRec::derFunc () const
 {
     return func;
 }
 
 DeriveFunc3D
-DeriveRec::derFunc3D () const noexcept
+DeriveRec::derFunc3D () const
 {
     return func_3d;
 }
 
 DeriveFuncFab
-DeriveRec::derFuncFab () const noexcept
+DeriveRec::derFuncFab () const
 {
     return func_fab;
 }
 
 DeriveRec::DeriveBoxMap
-DeriveRec::boxMap () const noexcept
+DeriveRec::boxMap () const
 {
     return bx_map;
 }
 
 Interpolater*
-DeriveRec::interp () const noexcept
+DeriveRec::interp () const
 {
     return mapper;
 }
 
 int
-DeriveRec::numDerive () const noexcept
+DeriveRec::numDerive () const
 {
     return n_derive;
 }
 
 int
-DeriveRec::numRange () const noexcept
+DeriveRec::numRange () const
 {
     return nsr;
 }
 
 int
-DeriveRec::numState () const noexcept
+DeriveRec::numState () const
 {
     return n_state;
 }
 
 const int*
-DeriveRec::getBC () const noexcept
+DeriveRec::getBC () const
 {
     return bcr;
 }
@@ -287,7 +287,7 @@ DeriveRec::buildBC (const DescriptorList& d_list)
 
 const
 std::string&
-DeriveRec::variableName(int comp) const noexcept
+DeriveRec::variableName(int comp) const
 {
   if (comp < variable_names.size()) 
      return variable_names[comp];

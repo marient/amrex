@@ -11,13 +11,14 @@ namespace amrex {
 
 AMREX_GPU_HOST_DEVICE
 inline
-void amrex_fill_slice_interp (Box const& bx, Array4<Real> slice,
-                              Array4<Real const> const& full,
+void amrex_fill_slice_interp (Box const& bx, FArrayBox & slicefab, FArrayBox const& fullfab,
                               int scomp, int fcomp, int ncomp,
-                              int dir, Real coord, GeometryData const& gd) noexcept
+                              int dir, Real coord, GeometryData const& gd)
 {
-    const auto lo = lbound(bx);
-    const auto hi = ubound(bx);
+    const auto len = length(bx);
+    const auto lo  = lbound(bx);
+    const auto full = fullfab.view(lo,fcomp);
+    const auto slice = slicefab.view(lo,scomp);
 
     int ilo = 0, jlo = 0, klo = 0;
     int ihi = 0, jhi = 0, khi = 0;
@@ -54,14 +55,12 @@ void amrex_fill_slice_interp (Box const& bx, Array4<Real> slice,
     }
 
     for (int n = 0; n < ncomp; ++n) {
-        const int ns = n + scomp;
-        const int nf = n + fcomp;
-        for         (int k = lo.z; k <= hi.z; ++k) {
-            for     (int j = lo.y; j <= hi.y; ++j) {
+        for         (int k = 0; k < len.z; ++k) {
+            for     (int j = 0; j < len.y; ++j) {
                 AMREX_PRAGMA_SIMD
-                for (int i = lo.x; i <= hi.x; ++i) {
-                    slice(i,j,k,ns) = (1.0-weight)*full(i+ilo,j+jlo,k+klo,nf)
-                        +                  weight *full(i+ihi,j+jhi,k+khi,nf);
+                for (int i = 0; i < len.x; ++i) {
+                    slice(i,j,k,n) = (1.0-weight)*full(i+ilo,j+jlo,k+klo,n)
+                        +                 weight *full(i+ihi,j+jhi,k+khi,n);
                 }
             }
         }

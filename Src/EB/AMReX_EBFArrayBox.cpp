@@ -10,27 +10,23 @@ EBFArrayBox::EBFArrayBox ()
 {
 }
 
-EBFArrayBox::EBFArrayBox (Arena* ar)
-    : FArrayBox(ar),
-      m_ebcellflag(nullptr)
-{
-}
-
-EBFArrayBox::EBFArrayBox (const EBCellFlagFab& ebflag, const Box& bx, int ncomps, Arena* ar)
-    : FArrayBox(bx, ncomps, ar),
+EBFArrayBox::EBFArrayBox (const EBCellFlagFab& ebflag, const Box& bx, int ncomps)
+    : FArrayBox(bx, ncomps),
       m_ebcellflag(&ebflag)
 {
     BL_ASSERT(ebflag.box().contains(amrex::enclosedCells(bx)));
-    const Box& ccbx = amrex::enclosedCells(bx);
-    m_type = ebflag.getType(ccbx);
+    const Box& sect = amrex::enclosedCells(bx) & ebflag.getRegion();
+    m_type = ebflag.getType(sect);
 }
 
-EBFArrayBox::EBFArrayBox (EBFArrayBox const& rhs, MakeType make_type, int scomp, int ncomp)
-    : FArrayBox(rhs, make_type, scomp, ncomp)
+#ifdef AMREX_USE_GPU
+EBFArrayBox::EBFArrayBox (EBFArrayBox const& rhs, MakeType make_type)
+    : FArrayBox(rhs, make_type)
 {
-    m_type = rhs.m_type;
+    m_type = rhs.m_type; // xxxxx TODO gpu
     m_ebcellflag = rhs.m_ebcellflag;
 }
+#endif
 
 EBFArrayBox::~EBFArrayBox ()
 {

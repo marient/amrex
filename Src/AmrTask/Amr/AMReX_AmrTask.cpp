@@ -36,11 +36,15 @@
 #include <AMReX_PlotFileUtil.H>
 #include <AMReX_Print.H>
 
+#ifdef AMREX_USE_FBOXLIB_MG
+#include <mg_cpp_f.h>
+#endif
+
 #ifdef BL_LAZY
 #include <AMReX_Lazy.H>
 #endif
 
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
 #include <AMReX_MemProfiler.H>
 #endif
 
@@ -1055,7 +1059,7 @@ Amr::checkInput ()
         }
     }
 
-    if( ! Geom(0).ProbDomain().ok()) {
+    if( ! Geometry::ProbDomain().ok()) {
         amrex::Error("Amr::checkInput: bad physical problem size");
     }
 
@@ -1134,17 +1138,16 @@ Amr::readProbinFile (int& a_init)
             amrex_probinit(&a_init,
 			   probin_file_name.dataPtr(),
 			   &probin_file_length,
-			   AMREX_ZFILL(Geom(0).ProbLo()),
-			   AMREX_ZFILL(Geom(0).ProbHi()));
+			   ZFILL(Geometry::ProbLo()),
+			   ZFILL(Geometry::ProbHi()));
 
 #else
 
             amrex_probinit(&a_init,
 			   probin_file_name.dataPtr(),
 			   &probin_file_length,
-			   Geom(0).ProbLo(),
-			   Geom(0).ProbHi());
-
+			   Geometry::ProbLo(),
+			   Geometry::ProbHi());
 #endif
 
             piEnd = ParallelDescriptor::second();
@@ -2021,7 +2024,7 @@ Amr::coarseTimeStep (Real stop_time)
 	});
 #endif
 
-#ifndef AMREX_MEM_PROFILING
+#ifndef BL_MEM_PROFILING
         long min_fab_kilobytes  = amrex::TotalBytesAllocatedInFabsHWM()/1024;
         long max_fab_kilobytes  = min_fab_kilobytes;
 
@@ -2040,7 +2043,7 @@ Amr::coarseTimeStep (Real stop_time)
 #endif
     }
 
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
     {
 	std::ostringstream ss;
 	ss << "[STEP " << level_steps[0] << "]";
@@ -2339,6 +2342,12 @@ Amr::regrid (int  lbase,
     }
 
     finest_level = new_finest;
+    //
+    // Flush the caches.
+    //
+#ifdef AMREX_USE_FBOXLIB_MG
+    mgt_flush_copyassoc_cache();
+#endif
 
     //
     // Define the new grids from level start up to new_finest.
@@ -2580,7 +2589,7 @@ Amr::printGridInfo (std::ostream& os,
         int                       numgrid = bs.size();
         long                      ncells  = amr_level[lev]->countCells();
         double                    ntot    = Geom(lev).Domain().d_numPts();
-        Real                      frac    = 100.0_rt*(Real(ncells) / ntot);
+        Real                      frac    = 100.0*(Real(ncells) / ntot);
         const DistributionMapping& map    = amr_level[lev]->get_new_data(0).DistributionMap();
 
         os << "  Level "

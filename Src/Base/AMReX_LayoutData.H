@@ -80,7 +80,7 @@ namespace amrex
         return *this;
     }
 
-    T& operator[](const MFIter& a_mfi) noexcept
+    T& operator[](const MFIter& a_mfi)
       {
         BL_ASSERT(a_mfi.LocalIndex() < m_data.size());
         BL_ASSERT(DistributionMap() == a_mfi.DistributionMap());
@@ -88,14 +88,14 @@ namespace amrex
       }
 
 
-    const T& operator[](const MFIter& a_mfi) const noexcept
+    const T& operator[](const MFIter& a_mfi) const
       {
         BL_ASSERT(a_mfi.LocalIndex() < m_data.size());
         BL_ASSERT(DistributionMap() == a_mfi.DistributionMap());
         return (m_data[a_mfi.LocalIndex()]);
       }
 
-    T& operator[](int a_box_index) noexcept
+    T& operator[](int a_box_index)
       {
         int local_index = this->localindex(a_box_index);
         BL_ASSERT(local_index < m_data.size());
@@ -103,7 +103,7 @@ namespace amrex
       }
 
 
-    const T& operator[](int a_box_index) const noexcept
+    const T& operator[](int a_box_index) const
       {
         int local_index = this->localindex(a_box_index);
         BL_ASSERT(local_index < m_data.size());

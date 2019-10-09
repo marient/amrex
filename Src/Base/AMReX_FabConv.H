@@ -205,7 +205,7 @@ public:
     */
     static void convertFromNativeFormat (void*                 out,
                                          long                  nitems,
-                                         const void*           in,
+                                         const Real*           in,
                                          const RealDescriptor& od);
 
     /**

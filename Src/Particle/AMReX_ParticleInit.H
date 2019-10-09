@@ -1,5 +1,3 @@
-#ifndef BL_PARTICLEINIT_H
-#define BL_PARTICLEINIT_H
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
@@ -574,11 +572,6 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::InitFromBinar
 
     for (int j = 0; j < how_many_redists; j++)
     {
-
-        Vector<std::map<std::pair<int, int>, Gpu::HostVector<ParticleType> > > host_particles;
-        host_particles.reserve(15);
-        host_particles.resize(finestLevel()+1);
-        
         if (readers.find(MyProc) != readers.end())
         {
             ParticleType p;
@@ -679,30 +672,12 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::InitFromBinar
                 p.m_idata.id  = ParticleType::NextID();
                 p.m_idata.cpu = MyProc;
 
-                host_particles[pld.m_lev][std::make_pair(pld.m_grid, pld.m_tile)].push_back(p);
+                m_particles[pld.m_lev][std::make_pair(pld.m_grid, pld.m_tile)].push_back(p);
             }
 
             how_many_read += NRead;
         }
 
-        for (int host_lev = 0; host_lev < static_cast<int>(host_particles.size()); ++host_lev)
-        {
-            for (auto& kv : host_particles[host_lev]) {
-                auto grid = kv.first.first;
-                auto tile = kv.first.second;
-                const auto& src_tile = kv.second;
-                
-                auto& dst_tile = GetParticles(host_lev)[std::make_pair(grid,tile)];
-                auto old_size = dst_tile.GetArrayOfStructs().size();
-                auto new_size = old_size + src_tile.size();
-                dst_tile.resize(new_size);
-                
-                Cuda::thrust_copy(src_tile.begin(),
-                                  src_tile.end(),
-                                  dst_tile.GetArrayOfStructs().begin() + old_size);
-            }
-        }
-        
         Redistribute();
         //
         // Move particles in m_particles into tmp_particles so that
@@ -753,8 +728,6 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::InitFromBinar
 
         amrex::Print() << "InitFromBinaryFile() time: " << runtime << '\n';
     }
-
-    Gpu::streamSynchronize();
 }
 
 //
@@ -875,18 +848,6 @@ InitRandom (long                    icount,
 
         int cnt = 0;
 
-        Vector<std::map<std::pair<int, int>, Gpu::HostVector<ParticleType> > > host_particles;
-        host_particles.reserve(15);
-        host_particles.resize(finestLevel()+1);
-
-	Vector<std::map<std::pair<int, int>, std::array<Cuda::HostVector<Real>, NArrayReal > > > host_real_attribs;
-        host_real_attribs.reserve(15);
-        host_real_attribs.resize(finestLevel()+1);
-
-	Vector<std::map<std::pair<int, int>, std::array<Cuda::HostVector<int>, NArrayInt > > > host_int_attribs;
-        host_int_attribs.reserve(15);
-        host_int_attribs.resize(finestLevel()+1);
-
         for (long j = 0; j < icount; j++)
         {
             ParticleType p;
@@ -919,50 +880,20 @@ InitRandom (long                    icount,
                 }
                 
                 // add the struct
-                host_particles[pld.m_lev][ind].push_back(p);
+                m_particles[pld.m_lev][ind].push_back(p);
 
                 // add the real...
                 for (int i = 0; i < NArrayReal; i++) {
-                    host_real_attribs[pld.m_lev][ind][i].push_back(pdata.real_array_data[i]);
-		}
+                    m_particles[pld.m_lev][ind].push_back_real(i, pdata.real_array_data[i]);
+                }
 
                 // ... and int array data
                 for (int i = 0; i < NArrayInt; i++) {
-                    host_int_attribs[pld.m_lev][ind][i].push_back(pdata.int_array_data[i]);
-                }
+                    m_particles[pld.m_lev][ind].push_back_int(i, pdata.int_array_data[i]);
+                }            
 
                 cnt++;
 	      }
-        }
-
-	for (int host_lev = 0; host_lev < static_cast<int>(host_particles.size()); ++host_lev)
-        {
-            for (auto& kv : host_particles[host_lev]) {
-                auto grid = kv.first.first;
-                auto tile = kv.first.second;
-                const auto& src_tile = kv.second;
-                
-                auto& dst_tile = GetParticles(host_lev)[std::make_pair(grid,tile)];
-                auto old_size = dst_tile.GetArrayOfStructs().size();
-                auto new_size = old_size + src_tile.size();
-                dst_tile.resize(new_size);
-                
-                Cuda::thrust_copy(src_tile.begin(),
-                                  src_tile.end(),
-                                  dst_tile.GetArrayOfStructs().begin() + old_size);
-
-		for (int i = 0; i < NArrayReal; ++i) {
-		  Cuda::thrust_copy(host_real_attribs[host_lev][std::make_pair(grid,tile)][i].begin(),
-				    host_real_attribs[host_lev][std::make_pair(grid,tile)][i].end(),
-				    dst_tile.GetStructOfArrays().GetRealData(i).begin() + old_size);
-		}
-
-		for (int i = 0; i < NArrayInt; ++i) {
-		  Cuda::thrust_copy(host_int_attribs[host_lev][std::make_pair(grid,tile)][i].begin(),
-				    host_int_attribs[host_lev][std::make_pair(grid,tile)][i].end(),
-				    dst_tile.GetStructOfArrays().GetIntData(i).begin() + old_size);
-		}
-            }
         }
 
         BL_ASSERT(OK());
@@ -977,18 +908,6 @@ InitRandom (long                    icount,
         }
         
         ParticleLocData pld;
-
-        Vector<std::map<std::pair<int, int>, Gpu::HostVector<ParticleType> > > host_particles;
-        host_particles.reserve(15);
-        host_particles.resize(finestLevel()+1);
-
-	Vector<std::map<std::pair<int, int>, std::array<Cuda::HostVector<Real>, NArrayReal > > > host_real_attribs;
-        host_real_attribs.reserve(15);
-        host_real_attribs.resize(finestLevel()+1);
-
-	Vector<std::map<std::pair<int, int>, std::array<Cuda::HostVector<int>, NArrayInt > > > host_int_attribs;
-        host_int_attribs.reserve(15);
-        host_int_attribs.resize(finestLevel()+1);
 
         for (long icnt = 0; icnt < M; icnt++) {
             ParticleType p;
@@ -1024,50 +943,20 @@ InitRandom (long                    icount,
             BL_ASSERT(pld.m_lev >= 0 && pld.m_lev <= finestLevel());            
             std::pair<int, int> ind(pld.m_grid, pld.m_tile); 
             
-
-	    // add the struct
-	    host_particles[pld.m_lev][ind].push_back(p);
-
-	    // add the real...
-	    for (int i = 0; i < NArrayReal; i++) {
-	        host_real_attribs[pld.m_lev][ind][i].push_back(pdata.real_array_data[i]);
-	    }
-
-	    // ... and int array data
-	    for (int i = 0; i < NArrayInt; i++) {
-	        host_int_attribs[pld.m_lev][ind][i].push_back(pdata.int_array_data[i]);
-	    }            
-        }
-
-        for (int host_lev = 0; host_lev < static_cast<int>(host_particles.size()); ++host_lev)
-        {
-            for (auto& kv : host_particles[host_lev]) {
-                auto grid = kv.first.first;
-                auto tile = kv.first.second;
-                const auto& src_tile = kv.second;
-                
-                auto& dst_tile = GetParticles(host_lev)[std::make_pair(grid,tile)];
-                auto old_size = dst_tile.GetArrayOfStructs().size();
-                auto new_size = old_size + src_tile.size();
-                dst_tile.resize(new_size);
-                
-                Cuda::thrust_copy(src_tile.begin(),
-                                  src_tile.end(),
-                                  dst_tile.GetArrayOfStructs().begin() + old_size);
-
-		for (int i = 0; i < NArrayReal; ++i) {
-		  Cuda::thrust_copy(host_real_attribs[host_lev][std::make_pair(grid,tile)][i].begin(),
-				    host_real_attribs[host_lev][std::make_pair(grid,tile)][i].end(),
-				    dst_tile.GetStructOfArrays().GetRealData(i).begin() + old_size);
-		}
-
-		for (int i = 0; i < NArrayInt; ++i) {
-		  Cuda::thrust_copy(host_int_attribs[host_lev][std::make_pair(grid,tile)][i].begin(),
-				    host_int_attribs[host_lev][std::make_pair(grid,tile)][i].end(),
-				    dst_tile.GetStructOfArrays().GetIntData(i).begin() + old_size);
-		}
+            // add the struct
+	    m_particles[pld.m_lev][ind].push_back(p);
+            
+            // add the real...
+            for (int i = 0; i < NArrayReal; i++) {
+                m_particles[pld.m_lev][ind].push_back_real(i, pdata.real_array_data[i]);
             }
+            
+            // ... and int array data
+            for (int i = 0; i < NArrayInt; i++) {
+                m_particles[pld.m_lev][ind].push_back_int(i, pdata.int_array_data[i]);
+            }            
         }
+
         // Let Redistribute() sort out where the particles belong.
         Redistribute();
     }
@@ -1080,8 +969,6 @@ InitRandom (long                    icount,
 
         amrex::Print() << "ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::InitRandom() time: " << stoptime << '\n';
     }
-
-    Gpu::streamSynchronize();
 }
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
@@ -1296,18 +1183,6 @@ InitNRandomPerCell (int n_per_cell, const ParticleInitData& pdata)
     {
         Box grid = ParticleBoxArray(0)[mfi.index()];
         RealBox grid_box (grid,dx,geom.ProbLo());
-
-        Vector<std::map<std::pair<int, int>, Gpu::HostVector<ParticleType> > > host_particles;
-        host_particles.reserve(15);
-        host_particles.resize(finestLevel()+1);
-
-	Vector<std::map<std::pair<int, int>, std::array<Cuda::HostVector<Real>, NArrayReal > > > host_real_attribs;
-        host_real_attribs.reserve(15);
-        host_real_attribs.resize(finestLevel()+1);
-
-	Vector<std::map<std::pair<int, int>, std::array<Cuda::HostVector<int>, NArrayInt > > > host_int_attribs;
-        host_int_attribs.reserve(15);
-        host_int_attribs.resize(finestLevel()+1);
         
         for (IntVect beg = grid.smallEnd(), end=grid.bigEnd(),
                     cell = grid.smallEnd(); cell <= end; grid.next(cell)) { 
@@ -1341,52 +1216,19 @@ InitNRandomPerCell (int n_per_cell, const ParticleInitData& pdata)
                 std::pair<int, int> ind(pld.m_grid, pld.m_tile); 
 
                 // add the struct
-                host_particles[pld.m_lev][ind].push_back(p);
+                m_particles[pld.m_lev][ind].push_back(p);
 
                 // add the real...
                 for (int i = 0; i < NArrayReal; i++) {
-                    host_real_attribs[pld.m_lev][ind][i].push_back(pdata.real_array_data[i]);
-		}
+                    m_particles[pld.m_lev][ind].push_back_real(i, pdata.real_array_data[i]);
+                }
 
                 // ... and int array data
                 for (int i = 0; i < NArrayInt; i++) {
-                    host_int_attribs[pld.m_lev][ind][i].push_back(pdata.int_array_data[i]);
-                }
+                    m_particles[pld.m_lev][ind].push_back_int(i, pdata.int_array_data[i]);
+                }            
             }
         }
-
-	for (int host_lev = 0; host_lev < static_cast<int>(host_particles.size()); ++host_lev)
-        {
-            for (auto& kv : host_particles[host_lev]) {
-                auto gid = kv.first.first;
-                auto tid = kv.first.second;
-                const auto& src_tid = kv.second;
-                
-                auto& dst_tile = GetParticles(host_lev)[std::make_pair(gid,tid)];
-                auto old_size = dst_tile.GetArrayOfStructs().size();
-                auto new_size = old_size + src_tid.size();
-                dst_tile.resize(new_size);
-                
-                Cuda::thrust_copy(src_tid.begin(),
-                                  src_tid.end(),
-                                  dst_tile.GetArrayOfStructs().begin() + old_size);
-                
-		for (int i = 0; i < NArrayReal; ++i)
-                {
-                    Cuda::thrust_copy(host_real_attribs[host_lev][std::make_pair(gid,tid)][i].begin(),
-                                      host_real_attribs[host_lev][std::make_pair(gid,tid)][i].end(),
-                                      dst_tile.GetStructOfArrays().GetRealData(i).begin() + old_size);
-		}
-                
-		for (int i = 0; i < NArrayInt; ++i)
-                {
-                    Cuda::thrust_copy(host_int_attribs[host_lev][std::make_pair(gid,tid)][i].begin(),
-                                      host_int_attribs[host_lev][std::make_pair(gid,tid)][i].end(),
-                                      dst_tile.GetStructOfArrays().GetIntData(i).begin() + old_size);
-		}
-            }
-        }
-
     }
 
     if (m_verbose > 1)
@@ -1397,7 +1239,4 @@ InitNRandomPerCell (int n_per_cell, const ParticleInitData& pdata)
         
         amrex::Print() << "ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::InitNRandomPerCell() time: " << stoptime << '\n';
     }
-
-    Gpu::streamSynchronize();
 }
-#endif /*BL_PARTICLEINIT_H*/

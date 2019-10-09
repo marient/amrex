@@ -24,7 +24,7 @@ public:
     MLCGSolver (const MLCGSolver& rhs) = delete;
     MLCGSolver& operator= (const MLCGSolver& rhs) = delete;
 
-    void setSolver (Type _typ) noexcept { solver_type = _typ; }
+    void setSolver (Type _typ) { solver_type = _typ; }
 
     /**
     * solve the system, Lp(solnL)=rhsL to relative err, tolerance
@@ -44,9 +44,6 @@ public:
     void setMaxIter (int _maxiter) { maxiter = _maxiter; }
     int getMaxIter () const { return maxiter; }
 
-    void setNGhost(int _nghost) {nghost = _nghost;}
-    int getNGhost() {return nghost;}
-    
     Real dotxy (const MultiFab& r, const MultiFab& z, bool local = false);
     Real norm_inf (const MultiFab& res, bool local = false);
     int solve_bicgstab (MultiFab&       solnL,
@@ -67,7 +64,6 @@ private:
     const int mglev;
     int    verbose   = 0;
     int    maxiter   = 100;
-    int nghost = 0;
 };
 
 }

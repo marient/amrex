@@ -1,7 +1,7 @@
 #ifndef AMREX_DivVis_H_
 #define AMREX_DivVis_H_
 
-#include <AMReX_Array.H>
+#include <AMReX_Tuple.H>
 #include <AMReX_MCLinOp.H>
 
 namespace amrex {
@@ -268,11 +268,11 @@ protected:
 
 protected:
 
-    //! Vector (on level) of "a" coefficients
+    //! Array (on level) of "a" coefficients
     Vector< MultiFab* > acoefs;
 
-    //! Vector (on level) of Array (on dimension) of "b" coefficients
-    Vector< Array< MultiFab*, BL_SPACEDIM> > bcoefs;
+    //! Array (on level) of Tuple (on dimension) of "b" coefficients
+    Vector< Tuple< MultiFab*, BL_SPACEDIM> > bcoefs;
 
     //! Scalar "alpha" coefficient
     Real alpha;

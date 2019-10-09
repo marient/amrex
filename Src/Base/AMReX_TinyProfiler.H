@@ -2,13 +2,11 @@
 #define AMREX_TINY_PROFILER_H_
 
 #include <string>
-#include <deque>
+#include <stack>
 #include <map>
 #include <vector>
-#include <tuple>
 #include <utility>
 #include <limits>
-#include <iostream>
 
 #include <AMReX_REAL.H>
 
@@ -22,28 +20,26 @@ namespace amrex {
 class TinyProfiler
 {
 public:
-    explicit TinyProfiler (std::string funcname) noexcept;
-    TinyProfiler (std::string funcname, bool start_) noexcept;
-    explicit TinyProfiler (const char* funcname) noexcept;
-    TinyProfiler (const char* funcname, bool start_) noexcept;
+    TinyProfiler (std::string funcname);
+    TinyProfiler (std::string funcname, bool start_);
+    TinyProfiler (const char* funcname);
+    TinyProfiler (const char* funcname, bool start_);
     ~TinyProfiler ();
 
-    void start () noexcept;
-    void stop () noexcept;
+    void start ();
+    void stop ();
 
-    static void Initialize () noexcept;
-    static void Finalize (bool bFlushing = false) noexcept;
+    static void Initialize ();
+    static void Finalize (bool bFlushing = false);
 
-    static void StartRegion (std::string regname) noexcept;
-    static void StopRegion (const std::string& regname) noexcept;
-
-    static void PrintCallStack (std::ostream& os);
+    static void StartRegion (std::string regname);
+    static void StopRegion (const std::string& regname);
 
 private:
     //! stats on a single process
     struct Stats
     {
-	Stats () noexcept : depth(0), n(0L), dtin(0.0), dtex(0.0) { }
+	Stats () : depth(0), n(0L), dtin(0.0), dtex(0.0) { }
 	int  depth; //!< recursive depth
 	long n;     //!< number of calls
 	double dtin;  //!< inclusive dt
@@ -76,7 +72,7 @@ private:
     std::vector<Stats*> stats;
 
     static std::vector<std::string> regionstack;
-    static std::deque<std::tuple<double,double,std::string*> > ttstack;
+    static std::stack<std::pair<double,double> > ttstack;
     static std::map<std::string,std::map<std::string, Stats> > statsmap;
     static double t_init;
 
@@ -84,14 +80,14 @@ private:
     nvtxRangeId_t nvtx_id;
 #endif
 
-    static void PrintStats (std::map<std::string,Stats>& regstats, double dt_max);
+    static void PrintStats(std::map<std::string,Stats>& regstats, double dt_max);
 };
 
 class TinyProfileRegion
 {
 public:
-    explicit TinyProfileRegion (std::string a_regname) noexcept;
-    explicit TinyProfileRegion (const char* a_regname) noexcept;
+    TinyProfileRegion (std::string a_regname);
+    TinyProfileRegion (const char* a_regname);
     ~TinyProfileRegion ();
 private:
     std::string regname;

@@ -10,7 +10,7 @@ class EBCellConservativeLinear
 {
 public:
 
-    explicit EBCellConservativeLinear (bool do_linear_limiting_ = true);
+    EBCellConservativeLinear (bool do_linear_limiting_ = true);
 
     virtual ~EBCellConservativeLinear () override;
 
@@ -23,10 +23,9 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Vector<BCRec> const& bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
-                         int              actual_state,
-                         RunOn            gpu_or_cpu) override;
+                         int              actual_state) override;
 };
 
 extern EBCellConservativeLinear  eb_lincc_interp;

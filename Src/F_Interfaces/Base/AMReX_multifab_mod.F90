@@ -105,7 +105,6 @@ module amrex_multifab_module
      procedure :: clear            => amrex_mfiter_clear
      procedure :: next             => amrex_mfiter_next
      procedure :: grid_index       => amrex_mfiter_grid_index
-     procedure :: local_tile_index => amrex_mfiter_local_tile_index
      procedure :: tilebox          => amrex_mfiter_tilebox
      procedure :: nodaltilebox     => amrex_mfiter_nodaltilebox
      procedure :: growntilebox     => amrex_mfiter_growntilebox
@@ -497,12 +496,6 @@ module amrex_multifab_module
        type(c_ptr), value :: p
      end function amrex_fi_mfiter_grid_index
 
-     integer(c_int) function amrex_fi_mfiter_local_tile_index(p) bind(c)
-       import
-       implicit none
-       type(c_ptr), value :: p
-     end function amrex_fi_mfiter_local_tile_index
-
      subroutine amrex_fi_mfiter_tilebox (p, lo, hi, nodal) bind(c)
        import
        implicit none
@@ -832,7 +825,7 @@ contains
     type(amrex_multifab), intent(in) :: srcmf1, srcmf2
     integer, intent(in) :: srccomp1, srccomp2, dstcomp, nc, ng
     real(amrex_real), intent(in) :: a, b
-    call amrex_fi_multifab_lincomb(this%p, a, srcmf1%p, srccomp1-1, b, srcmf2%p, srccomp2-1, &
+    call amrex_fi_multifab_lincomb(this%p, a, srcmf1%p, srccomp1-1, b, srcmf2%p, srccomp2, &
          dstcomp-1, nc, ng)
   end subroutine amrex_multifab_lincomb
 
@@ -1243,11 +1236,6 @@ contains
     class(amrex_mfiter) :: this
     amrex_mfiter_grid_index = amrex_fi_mfiter_grid_index(this%p)
   end function amrex_mfiter_grid_index
-
-  integer function amrex_mfiter_local_tile_index (this)
-    class(amrex_mfiter) :: this
-    amrex_mfiter_local_tile_index = amrex_fi_mfiter_local_tile_index(this%p)
-  end function amrex_mfiter_local_tile_index
 
   function amrex_mfiter_tilebox (this, nodal) result (bx)
     class(amrex_mfiter), intent(in) :: this

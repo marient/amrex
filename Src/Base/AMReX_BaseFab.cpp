@@ -4,7 +4,7 @@
 #include <AMReX_BaseFab.H>
 #include <AMReX_BLFort.H>
 
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
 #include <AMReX_MemProfiler.H>
 #endif
 
@@ -27,6 +27,10 @@ BaseFab_Initialize ()
     {
         basefab_initialized = true;
 
+#ifdef AMREX_USE_GPU
+        makeFabPoolAllocator();
+#endif
+
 #ifdef _OPENMP
 #pragma omp parallel
         {
@@ -37,7 +41,7 @@ BaseFab_Initialize ()
         }
 #endif
 
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
         MemProfiler::add("Fab", std::function<MemProfiler::MemInfo()>
                          ([] () -> MemProfiler::MemInfo {
                              return {amrex::TotalBytesAllocatedInFabs(),
@@ -53,11 +57,14 @@ void
 BaseFab_Finalize()
 {
     basefab_initialized = false;
+#ifdef AMREX_USE_GPU
+    destroyFabPoolAllocator();
+#endif
 }
 
 
 long 
-TotalBytesAllocatedInFabs () noexcept
+TotalBytesAllocatedInFabs()
 {
 #ifdef _OPENMP
     long r=0;
@@ -72,7 +79,7 @@ TotalBytesAllocatedInFabs () noexcept
 }
 
 long 
-TotalBytesAllocatedInFabsHWM () noexcept
+TotalBytesAllocatedInFabsHWM()
 {
 #ifdef _OPENMP
     long r=0;
@@ -87,7 +94,7 @@ TotalBytesAllocatedInFabsHWM () noexcept
 }
 
 long 
-TotalCellsAllocatedInFabs () noexcept
+TotalCellsAllocatedInFabs()
 {
 #ifdef _OPENMP
     long r=0;
@@ -102,7 +109,7 @@ TotalCellsAllocatedInFabs () noexcept
 }
 
 long 
-TotalCellsAllocatedInFabsHWM () noexcept
+TotalCellsAllocatedInFabsHWM()
 {
 #ifdef _OPENMP
     long r=0;
@@ -117,7 +124,7 @@ TotalCellsAllocatedInFabsHWM () noexcept
 }
 
 void 
-ResetTotalBytesAllocatedInFabsHWM () noexcept
+ResetTotalBytesAllocatedInFabsHWM()
 {
 #ifdef _OPENMP
 #pragma omp parallel
@@ -128,7 +135,7 @@ ResetTotalBytesAllocatedInFabsHWM () noexcept
 }
 
 void
-update_fab_stats (long n, long s, size_t szt) noexcept
+update_fab_stats (long n, long s, size_t szt)
 {
     long tst = s*szt;
     amrex::private_total_bytes_allocated_in_fabs += tst;

@@ -52,10 +52,7 @@ DArena::DArena (std::size_t max_size, std::size_t max_block_size, ArenaInfo info
 
 DArena::~DArena ()
 {
-    for (auto const& kv : m_system) {
-        deallocate_system(kv.first, kv.second);
-    }
-    deallocate_system(m_baseptr, m_max_size);
+    deallocate_system(m_baseptr);
 }
 
 void*
@@ -95,9 +92,7 @@ DArena::alloc (std::size_t nbytes)
                 warning_printed = true;
             }
         }
-        void* p = allocate_system(nbytes); // use the system malloc as backup.
-        m_system.insert({p,nbytes});
-        return p;
+        return allocate_system(nbytes); // use the system malloc as backup.
     }
 }
 
@@ -114,13 +109,7 @@ DArena::free (void* p)
         offset /= m_block_size;  // # of bytes -> # of order 0 blocks
         deallocate_order(order, offset);
     } else {
-        auto r2 = m_system.find(p);
-        if (r2 != m_system.end()) {
-            deallocate_system(r2->first, r2->second);
-            m_system.erase(r2);
-        } else {
-            amrex::Abort("DArena::free failed.  Unknown pointer");
-        }
+        deallocate_system(p);
     }
 }
 

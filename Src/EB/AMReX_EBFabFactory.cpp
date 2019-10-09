@@ -28,12 +28,12 @@ EBFArrayBoxFactory::create (const Box& box, int ncomps,
 {
     if (m_support == EBSupport::none)
     {
-        return new FArrayBox(box, ncomps, info.alloc, info.shared, info.arena);
+        return new FArrayBox(box, ncomps, info.alloc, info.shared);
     }
     else
     {
         const EBCellFlagFab& ebcellflag = m_ebdc->getMultiEBCellFlagFab()[box_index];
-        return new EBFArrayBox(ebcellflag, box, ncomps, info.arena);
+        return new EBFArrayBox(ebcellflag, box, ncomps);
     }
 }
 
@@ -51,6 +51,35 @@ EBFArrayBoxFactory::destroy (FArrayBox* fab) const
     }
 }
 
+#ifdef AMREX_USE_GPU
+FArrayBox*
+EBFArrayBoxFactory::createHostAlias (const FArrayBox& src) const
+{
+    if (m_support == EBSupport::none)
+    {
+        return ::new FArrayBox(src, amrex::make_alias);
+    }
+    else
+    {
+        return ::new EBFArrayBox(static_cast<EBFArrayBox const&>(src), amrex::make_alias);
+    }
+}
+
+void
+EBFArrayBoxFactory::destroyHostAlias (FArrayBox* fab) const
+{
+    if (m_support == EBSupport::none)
+    {
+        ::delete fab;
+    }
+    else
+    {
+        EBFArrayBox* p = static_cast<EBFArrayBox*>(fab);
+        ::delete p;
+    }
+}
+#endif
+
 EBFArrayBoxFactory*
 EBFArrayBoxFactory::clone () const
 {
@@ -58,13 +87,13 @@ EBFArrayBoxFactory::clone () const
 }
 
 EB2::IndexSpace const*
-EBFArrayBoxFactory::getEBIndexSpace () const noexcept
+EBFArrayBoxFactory::getEBIndexSpace () const
 {
     return (m_parent) ? m_parent->getEBIndexSpace() : nullptr;
 }
 
 int
-EBFArrayBoxFactory::maxCoarseningLevel () const noexcept
+EBFArrayBoxFactory::maxCoarseningLevel () const
 {
     if (m_parent) {
         EB2::IndexSpace const* ebis = m_parent->getEBIndexSpace();
@@ -75,13 +104,13 @@ EBFArrayBoxFactory::maxCoarseningLevel () const noexcept
 }
 
 const DistributionMapping&
-EBFArrayBoxFactory::DistributionMap () const noexcept
+EBFArrayBoxFactory::DistributionMap () const
 {
     return m_ebdc->getVolFrac().DistributionMap();
 }
 
 const BoxArray&
-EBFArrayBoxFactory::boxArray () const noexcept
+EBFArrayBoxFactory::boxArray () const
 {
     return m_ebdc->getVolFrac().boxArray();
 }

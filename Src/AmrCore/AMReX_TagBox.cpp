@@ -11,30 +11,28 @@
 
 namespace amrex {
 
-TagBox::TagBox () noexcept {}
+TagBox::TagBox () {}
 
-TagBox::TagBox (Arena* ar) noexcept
-    : BaseFab<TagBox::TagType>(ar)
-{}
-
-TagBox::TagBox (const Box& bx, int n, Arena* ar)
-    : BaseFab<TagBox::TagType>(bx,n,ar)
-{
-    setVal(TagBox::CLEAR);
-}
-
-TagBox::TagBox (const Box& bx, int n, bool alloc, bool shared, Arena* ar)
-    : BaseFab<TagBox::TagType>(bx,n,alloc,shared,ar)
+TagBox::TagBox (const Box& bx,
+                int        n,
+                bool       alloc,
+		bool       shared)
+    :
+    BaseFab<TagBox::TagType>(bx,n,alloc,shared)
 {
     if (alloc) setVal(TagBox::CLEAR);
 }
 
-TagBox::TagBox (const TagBox& rhs, MakeType make_type, int scomp, int ncomp)
-    : BaseFab<TagBox::TagType>(rhs,make_type,scomp,ncomp)
-{}
+#ifdef AMREX_USE_GPU
+TagBox::TagBox (const TagBox& rhs, MakeType make_type)
+    :
+    BaseFab<TagBox::TagType>(rhs,make_type)
+{
+}
+#endif
 
 void
-TagBox::coarsen (const IntVect& ratio) noexcept
+TagBox::coarsen (const IntVect& ratio, bool owner)
 {
     BL_ASSERT(nComp() == 1);
 
@@ -50,6 +48,10 @@ TagBox::coarsen (const IntVect& ratio) noexcept
 
     this->nvar = 1;
     this->domain = cbox;
+
+    if (!owner) {
+        return;
+    }
 
     const int* clo      = cbox.loVect();
     IntVect    cbox_len = cbox.size();
@@ -81,7 +83,6 @@ TagBox::coarsen (const IntVect& ratio) noexcept
    for (int k = klo; k <= khi; k++)
    {
        const int kc = IXPROJ(k,ratioz);
-       amrex::ignore_unused(kc);
        for (int j = jlo; j <= jhi; j++)
        {
            const int     jc = IXPROJ(j,ratioy);
@@ -113,7 +114,8 @@ TagBox::coarsen (const IntVect& ratio) noexcept
 }
 
 void 
-TagBox::buffer (const IntVect& nbuff, const IntVect& nwid) noexcept
+TagBox::buffer (int nbuff,
+                int nwid)
 {
     //
     // Note: this routine assumes cell with TagBox::SET tag are in
@@ -123,18 +125,16 @@ TagBox::buffer (const IntVect& nbuff, const IntVect& nwid) noexcept
     inside.grow(-nwid);
     const int* inlo = inside.loVect();
     const int* inhi = inside.hiVect();
-
     int klo = 0, khi = 0, jlo = 0, jhi = 0, ilo, ihi;
     AMREX_D_TERM(ilo=inlo[0]; ihi=inhi[0]; ,
-                 jlo=inlo[1]; jhi=inhi[1]; ,
-                 klo=inlo[2]; khi=inhi[2];)
-
-    int ni = 0, nj = 0, nk = 0;
-    AMREX_D_TERM(ni=nbuff[0];, nj=nbuff[1];, nk=nbuff[2];)
+           jlo=inlo[1]; jhi=inhi[1]; ,
+           klo=inlo[2]; khi=inhi[2];)
 
     IntVect d_length = domain.size();
     const int* len = d_length.getVect();
     const int* lo = domain.loVect();
+    int ni = 0, nj = 0, nk = 0;
+    AMREX_D_TERM(ni, =nj, =nk) = nbuff;
     TagType* d = dataPtr();
 
 #define OFF(i,j,k,lo,len) AMREX_D_TERM(i-lo[0], +(j-lo[1])*len[0] , +(k-lo[2])*len[0]*len[1])
@@ -168,7 +168,7 @@ TagBox::buffer (const IntVect& nbuff, const IntVect& nwid) noexcept
 }
 
 void 
-TagBox::merge (const TagBox& src) noexcept
+TagBox::merge (const TagBox& src)
 {
     //
     // Compute intersections.
@@ -215,7 +215,7 @@ TagBox::merge (const TagBox& src) noexcept
 }
 
 long
-TagBox::numTags () const noexcept
+TagBox::numTags () const
 {
     long nt = 0L;
     long len = domain.numPts();
@@ -229,7 +229,7 @@ TagBox::numTags () const noexcept
 }
 
 long
-TagBox::numTags (const Box& b) const noexcept
+TagBox::numTags (const Box& b) const
 {
    TagBox tempTagBox(b,1);
    tempTagBox.copy(*this);
@@ -237,7 +237,7 @@ TagBox::numTags (const Box& b) const noexcept
 }
 
 long
-TagBox::collate (Vector<IntVect>& ar, int start) const noexcept
+TagBox::collate (Vector<IntVect>& ar, int start) const
 {
     BL_ASSERT(start >= 0);
     //
@@ -271,7 +271,7 @@ TagBox::collate (Vector<IntVect>& ar, int start) const noexcept
 }
 
 Vector<int>
-TagBox::tags () const noexcept
+TagBox::tags () const
 {
     Vector<int> ar(domain.numPts(), TagBox::CLEAR);
 
@@ -291,7 +291,7 @@ TagBox::tags () const noexcept
 // Set values as specified by the array -- this only tags.
 // It's an error if ar.length() != domain.numPts().
 void
-TagBox::tags (const Vector<int>& ar) noexcept
+TagBox::tags (const Vector<int>& ar)
 {
     BL_ASSERT(ar.size() == domain.numPts());
 
@@ -308,7 +308,7 @@ TagBox::tags (const Vector<int>& ar) noexcept
 // Set values as specified by the array -- this tags and untags.
 // It's an error if ar.length() != domain.numPts().
 void
-TagBox::tags_and_untags (const Vector<int>& ar) noexcept
+TagBox::tags_and_untags (const Vector<int>& ar)
 {
     BL_ASSERT(ar.size() == domain.numPts());
 
@@ -326,7 +326,7 @@ TagBox::tags_and_untags (const Vector<int>& ar) noexcept
 // function to allocate an integer array to have the same number 
 // of elements as cells in tilebx
 void 
-TagBox::get_itags(Vector<int>& ar, const Box& tilebx) const noexcept
+TagBox::get_itags(Vector<int>& ar, const Box& tilebx) const
 {
     auto dlen = length();
     int Lbx[] = {1,1,1};
@@ -367,7 +367,7 @@ TagBox::get_itags(Vector<int>& ar, const Box& tilebx) const noexcept
 // Set values as specified by the array -- this only tags.
 // only changes values in the tilebx region
 void 
-TagBox::tags (const Vector<int>& ar, const Box& tilebx) noexcept
+TagBox::tags (const Vector<int>& ar, const Box& tilebx)
 {
     auto dlen = length();
     int Lbx[] = {1,1,1};
@@ -401,7 +401,7 @@ TagBox::tags (const Vector<int>& ar, const Box& tilebx) noexcept
 // Set values as specified by the array -- this tags and untags.
 // only changes values in the tilebx region
 void 
-TagBox::tags_and_untags (const Vector<int>& ar, const Box& tilebx) noexcept
+TagBox::tags_and_untags (const Vector<int>& ar, const Box& tilebx)
 {
     auto dlen = length();
     int Lbx[] = {1,1,1};
@@ -440,33 +440,26 @@ TagBoxArray::TagBoxArray (const BoxArray& ba,
     if (SharedMemory()) setVal(TagBox::CLEAR);
 }
 
-TagBoxArray::TagBoxArray (const BoxArray& ba,
-			  const DistributionMapping& dm,
-                          const IntVect&  _ngrow)
-    :
-    FabArray<TagBox>(ba,dm,1,_ngrow,MFInfo(),DefaultFabFactory<TagBox>())
+int
+TagBoxArray::borderSize () const
 {
-    if (SharedMemory()) setVal(TagBox::CLEAR);
-}
-
-IntVect
-TagBoxArray::borderSize () const noexcept
-{
-    return n_grow;
+    return n_grow[0];
 }
 
 void 
-TagBoxArray::buffer (const IntVect& nbuf)
+TagBoxArray::buffer (int nbuf)
 {
-    AMREX_ASSERT(nbuf.allLE(n_grow));
-
-    if (nbuf.max() > 0)
+    if (nbuf != 0)
     {
+        BL_ASSERT(nbuf <= n_grow[0]);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-       for (MFIter mfi(*this); mfi.isValid(); ++mfi)
-           get(mfi).buffer(nbuf, n_grow);
+	for (MFIter mfi(*this); mfi.isValid(); ++mfi)
+	{
+	    get(mfi).buffer(nbuf, n_grow[0]);
+        } 
     }
 }
 
@@ -495,7 +488,7 @@ TagBoxArray::mapPeriodic (const Geometry& geom)
 }
 
 long
-TagBoxArray::numTags () const
+TagBoxArray::numTags () const 
 {
     long ntag = 0;
 
@@ -566,7 +559,7 @@ TagBoxArray::collate (Vector<IntVect>& TheGlobalCollateSpace) const
 
     TheGlobalCollateSpace.resize(numtags);
 
-#ifdef BL_USE_MPI
+#if BL_USE_MPI
     //
     // Tell root CPU how many tags each CPU will be sending.
     //
@@ -660,10 +653,13 @@ TagBoxArray::coarsen (const IntVect & ratio)
 #endif
     for (MFIter mfi(*this,flags); mfi.isValid(); ++mfi)
     {
-        this->fabPtr(mfi)->coarsen(ratio);
+        this->fabDevicePtr(mfi)->coarsen(ratio,isOwner(mfi.LocalIndex()));
+#ifdef AMREX_USE_GPU
+        this->fabHostPtr(mfi)->coarsen(ratio,false);
+#endif
     }
 
-    boxarray.growcoarsen(n_grow,ratio);
+    boxarray.growcoarsen(n_grow[0],ratio);
     updateBDKey();  // because we just modify boxarray in-place.
 
     n_grow = IntVect::TheZeroVector();

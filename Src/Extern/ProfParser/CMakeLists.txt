@@ -1,6 +1,3 @@
-target_compile_definitions(amrex PUBLIC $<BUILD_INTERFACE:AMREX_USE_PROFPARSER BL_USE_PROFPARSER>)
-target_include_directories(amrex PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>)
-
 # 
 # Extra pre-processing steps if any profiling is active
 # 
@@ -24,18 +21,9 @@ add_custom_command (
 
 unset (PWD)
 
-
-
-target_sources( amrex
-   PRIVATE 
-   AMReX_BLProfStats.H
-   AMReX_BLProfStats.cpp
-   AMReX_BLProfUtilities.H
-   AMReX_BLProfUtilities.cpp
-   AMReX_BLWritePlotFile.cpp
-   BLProfParser.tab.cpp
-   BLProfParser.lex.yy.cpp
-   AMReX_CommProfStats.cpp
-   AMReX_RegionsProfStats.cpp 
-   AMReX_AVGDOWN_${DIM}D.F
-   )
+add_sources( AMReX_BLProfStats.H        AMReX_BLProfUtilities.H )
+add_sources( AMReX_BLProfUtilities.cpp  AMReX_BLWritePlotFile.cpp )
+add_sources( BLProfParser.tab.cpp )
+add_sources( BLProfParser.lex.yy.cpp    AMReX_BLProfStats.cpp )
+add_sources( AMReX_CommProfStats.cpp    AMReX_RegionsProfStats.cpp )
+add_sources( AMReX_AVGDOWN_${DIM}D.F )

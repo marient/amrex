@@ -11,39 +11,45 @@ namespace amrex {
 template <class FAB, class F,
           class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
 typename FAB::value_type
-ReduceSum (FabArray<FAB> const& fa, int nghost, F f) {
-    return ReduceSum(fa, IntVect(nghost), std::move(f));
-}
-
-template <class FAB, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-typename FAB::value_type
-ReduceSum (FabArray<FAB> const& fa, IntVect const& nghost, F f)
+ReduceSum (FabArray<FAB> const& fa, int nghost, F f)
 {
     using value_type = typename FAB::value_type;
     value_type sm = 0;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpSum> reduce_op;
-        ReduceData<value_type> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<value_type> as_sm(&sm, 1);
+        value_type* d_sm = as_sm.data();
 
         for (MFIter mfi(fa); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr = fa.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB fab(arr,b.ixType());
-                return { f(b,fab) };
+            FAB const* fab = fa.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(value_type),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<value_type> gsm;
+                value_type* block_sum = gsm.dataPtr();
+                value_type* sdata = block_sum + 1;
+
+                value_type tsum = 0.0;
+                for (auto const tbx : Gpu::Range(bx)) {
+                    tsum += f(tbx, *fab);
+                }
+                sdata[threadIdx.x] = tsum;
+                __syncthreads();
+
+                Gpu::blockReduceSum<AMREX_CUDA_MAX_THREADS>(sdata, *block_sum);
+
+                if (threadIdx.x == 0) Cuda::Atomic::Add(d_sm, *block_sum);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        sm = amrex::get<0>(hv);
+        as_sm.copyToHost(&sm, 1);
     }
     else
 #endif
@@ -65,42 +71,46 @@ template <class FAB1, class FAB2, class F,
           class bar = amrex::EnableIf_t<IsBaseFab<FAB1>::value> >
 typename FAB1::value_type
 ReduceSum (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2,
-           int nghost, F f) {
-    return ReduceSum(fa1, fa2, IntVect(nghost), std::move(f));
-}
-
-template <class FAB1, class FAB2, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB1>::value> >
-typename FAB1::value_type
-ReduceSum (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2,
-           IntVect const& nghost, F f)
+           int nghost, F f)
 {
     using value_type = typename FAB1::value_type;
     value_type sm = 0;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpSum> reduce_op;
-        ReduceData<value_type> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<value_type> as_sm(&sm, 1);
+        value_type* d_sm = as_sm.data();
 
         for (MFIter mfi(fa1); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr1 = fa1.array(mfi);
-            const auto& arr2 = fa2.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB1 fab1(arr1,b.ixType());
-                const FAB2 fab2(arr2,b.ixType());
-                return { f(b, fab1, fab2) };
+            FAB1 const* fab1 = fa1.fabPtr(mfi);
+            FAB2 const* fab2 = fa2.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(value_type),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<value_type> gsm;
+                value_type* block_sum = gsm.dataPtr();
+                value_type* sdata = block_sum + 1;
+
+                value_type tsum = 0.0;
+                for (auto const tbx : Gpu::Range(bx)) {
+                    tsum += f(tbx, *fab1, *fab2);
+                }
+                sdata[threadIdx.x] = tsum;
+                __syncthreads();
+
+                Gpu::blockReduceSum<AMREX_CUDA_MAX_THREADS>(sdata, *block_sum);
+
+                if (threadIdx.x == 0) Cuda::Atomic::Add(d_sm, *block_sum);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        sm = amrex::get<0>(hv);
+        as_sm.copyToHost(&sm, 1);
     }
     else
 #endif
@@ -122,44 +132,47 @@ template <class FAB1, class FAB2, class FAB3, class F,
           class bar = amrex::EnableIf_t<IsBaseFab<FAB1>::value> >
 typename FAB1::value_type
 ReduceSum (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2, FabArray<FAB3> const& fa3,
-           int nghost, F f) {
-  return ReduceSum(fa1, fa2, fa3, nghost, std::move(f));
-}
-
-template <class FAB1, class FAB2, class FAB3, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB1>::value> >
-typename FAB1::value_type
-ReduceSum (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2, FabArray<FAB3> const& fa3,
-           IntVect const& nghost, F f)
+           int nghost, F f)
 {
     using value_type = typename FAB1::value_type;
     value_type sm = 0;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpSum> reduce_op;
-        ReduceData<value_type> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<value_type> as_sm(&sm, 1);
+        value_type* d_sm = as_sm.data();
 
         for (MFIter mfi(fa1); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr1 = fa1.array(mfi);
-            const auto& arr2 = fa2.array(mfi);
-            const auto& arr3 = fa2.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB1 fab1(arr1,b.ixType());
-                const FAB2 fab2(arr2,b.ixType());
-                const FAB3 fab3(arr3,b.ixType());
-                return { f(b, fab1, fab2, fab3) };
+            FAB1 const* fab1 = fa1.fabPtr(mfi);
+            FAB2 const* fab2 = fa2.fabPtr(mfi);
+            FAB3 const* fab3 = fa3.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(value_type),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<value_type> gsm;
+                value_type* block_sum = gsm.dataPtr();
+                value_type* sdata = block_sum + 1;
+
+                value_type tsum = 0.0;
+                for (auto const tbx : Gpu::Range(bx)) {
+                    tsum += f(tbx, *fab1, *fab2, *fab3);
+                }
+                sdata[threadIdx.x] = tsum;
+                __syncthreads();
+
+                Gpu::blockReduceSum<AMREX_CUDA_MAX_THREADS>(sdata, *block_sum);
+
+                if (threadIdx.x == 0) Cuda::Atomic::Add(d_sm, *block_sum);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        sm = amrex::get<0>(hv);
+        as_sm.copyToHost(&sm, 1);
     }
     else
 #endif
@@ -180,40 +193,51 @@ ReduceSum (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2, FabArray<FAB3> 
 template <class FAB, class F,
           class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
 typename FAB::value_type
-ReduceMin (FabArray<FAB> const& fa, int nghost, F f) {
-    return ReduceMin(fa, IntVect(nghost), std::move(f));
-}
-
-template <class FAB, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-typename FAB::value_type
-ReduceMin (FabArray<FAB> const& fa, IntVect const& nghost, F f)
+ReduceMin (FabArray<FAB> const& fa, int nghost, F f)
 {
     using value_type = typename FAB::value_type;
     constexpr value_type value_max = std::numeric_limits<value_type>::max();
     value_type r = value_max;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpMin> reduce_op;
-        ReduceData<value_type> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<value_type> as_r(&r, 1);
+        value_type* d_r = as_r.data();
 
         for (MFIter mfi(fa); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr = fa.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB fab(arr,b.ixType());
-                return { f(b, fab) };
+            FAB const* fab = fa.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(value_type),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<value_type> gsm;
+                value_type* block_r = gsm.dataPtr();
+                value_type* sdata = block_r + 1;
+
+#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+                value_type tmin = std::numeric_limits<value_type>::max();
+#else
+                value_type tmin = value_max;
+#endif
+                for (auto const tbx : Gpu::Range(bx)) {
+                    value_type local_tmin = f(tbx, *fab);
+                    tmin = amrex::min(tmin, local_tmin);
+                }
+                sdata[threadIdx.x] = tmin;
+                __syncthreads();
+
+                Gpu::blockReduceMin<AMREX_CUDA_MAX_THREADS>(sdata, *block_r);
+
+                if (threadIdx.x == 0) Cuda::Atomic::Min(d_r, *block_r);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        r = amrex::get<0>(hv);
+        as_r.copyToHost(&r, 1);
     }
     else
 #endif
@@ -236,41 +260,50 @@ template <class FAB1, class FAB2, class F,
 typename FAB1::value_type
 ReduceMin (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2, int nghost, F f)
 {
-    return ReduceMin(fa1, fa2, IntVect(nghost), std::move(f));
-}
-
-template <class FAB1, class FAB2, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB1>::value> >
-typename FAB1::value_type
-ReduceMin (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2, IntVect const& nghost, F f)
-{
     using value_type = typename FAB1::value_type;
     constexpr value_type value_max = std::numeric_limits<value_type>::max();
     value_type r = value_max;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpMin> reduce_op;
-        ReduceData<value_type> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<value_type> as_r(&r, 1);
+        value_type* d_r = as_r.data();
 
         for (MFIter mfi(fa1); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr1 = fa1.array(mfi);
-            const auto& arr2 = fa2.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB1 fab1(arr1,b.ixType());
-                const FAB2 fab2(arr2,b.ixType());
-                return { f(b, fab1, fab2) };
+            FAB1 const* fab1 = fa1.fabPtr(mfi);
+            FAB2 const* fab2 = fa2.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(value_type),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<value_type> gsm;
+                value_type* block_r = gsm.dataPtr();
+                value_type* sdata = block_r + 1;
+
+#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+                value_type tmin = std::numeric_limits<value_type>::max();
+#else
+                value_type tmin = value_max;
+#endif
+                for (auto const tbx : Gpu::Range(bx)) {
+                    value_type local_tmin = f(tbx, *fab1, *fab2);
+                    tmin = amrex::min(tmin, local_tmin);
+                }
+                sdata[threadIdx.x] = tmin;
+                __syncthreads();
+
+                Gpu::blockReduceMin<AMREX_CUDA_MAX_THREADS>(sdata, *block_r);
+
+                if (threadIdx.x == 0) Cuda::Atomic::Min(d_r, *block_r);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        r = amrex::get<0>(hv);
+        as_r.copyToHost(&r, 1);
     }
     else
 #endif
@@ -293,39 +326,49 @@ template <class FAB, class F,
 typename FAB::value_type
 ReduceMax (FabArray<FAB> const& fa, int nghost, F f)
 {
-    return ReduceMax(fa, IntVect(nghost), std::move(f));
-}
-
-template <class FAB, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-typename FAB::value_type
-ReduceMax (FabArray<FAB> const& fa, IntVect const& nghost, F f)
-{
     using value_type = typename FAB::value_type;
     constexpr value_type value_lowest = std::numeric_limits<value_type>::lowest();
     value_type r = value_lowest;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpMax> reduce_op;
-        ReduceData<value_type> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<value_type> as_r(&r, 1);
+        value_type* d_r = as_r.data();
 
         for (MFIter mfi(fa); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr = fa.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB fab(arr,b.ixType());
-                return { f(b, fab) };
+            FAB const* fab = fa.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(value_type),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<value_type> gsm;
+                value_type* block_r = gsm.dataPtr();
+                value_type* sdata = block_r + 1;
+
+#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+                value_type tmax = std::numeric_limits<value_type>::lowest();
+#else
+                value_type tmax = value_lowest;
+#endif
+                for (auto const tbx : Gpu::Range(bx)) {
+                    value_type local_tmax = f(tbx, *fab);
+                    tmax = amrex::max(tmax, local_tmax);
+                }
+                sdata[threadIdx.x] = tmax;
+                __syncthreads();
+
+                Gpu::blockReduceMax<AMREX_CUDA_MAX_THREADS>(sdata, *block_r);
+
+                if (threadIdx.x == 0) Cuda::Atomic::Max(d_r, *block_r);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        r = amrex::get<0>(hv);
+        as_r.copyToHost(&r, 1);
     }
     else
 #endif
@@ -348,41 +391,50 @@ template <class FAB1, class FAB2, class F,
 typename FAB1::value_type
 ReduceMax (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2, int nghost, F f)
 {
-    return ReduceMax(fa1, fa2, IntVect(nghost), std::move(f));
-}
-
-template <class FAB1, class FAB2, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB1>::value> >
-typename FAB1::value_type
-ReduceMax (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2, IntVect const& nghost, F f)
-{
     using value_type = typename FAB1::value_type;
     constexpr value_type value_lowest = std::numeric_limits<value_type>::lowest();
     value_type r = value_lowest;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpMax> reduce_op;
-        ReduceData<value_type> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<value_type> as_r(&r, 1);
+        value_type* d_r = as_r.data();
 
         for (MFIter mfi(fa1); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr1 = fa1.array(mfi);
-            const auto& arr2 = fa2.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB1 fab1(arr1,b.ixType());
-                const FAB2 fab2(arr2,b.ixType());
-                return { f(b, fab1, fab2) };
+            FAB1 const* fab1 = fa1.fabPtr(mfi);
+            FAB2 const* fab2 = fa2.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(value_type),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<value_type> gsm;
+                value_type* block_r = gsm.dataPtr();
+                value_type* sdata = block_r + 1;
+
+#if !defined(__CUDACC__) || (__CUDACC_VER_MAJOR__ != 9) || (__CUDACC_VER_MINOR__ != 2)
+                value_type tmax = std::numeric_limits<value_type>::lowest();
+#else
+                value_type tmax = value_lowest;
+#endif
+                for (auto const tbx : Gpu::Range(bx)) {
+                    value_type local_tmax = f(tbx, *fab1, *fab2);
+                    tmax = amrex::max(tmax, local_tmax);
+                }
+                sdata[threadIdx.x] = tmax;
+                __syncthreads();
+
+                Gpu::blockReduceMax<AMREX_CUDA_MAX_THREADS>(sdata, *block_r);
+
+                if (threadIdx.x == 0) Cuda::Atomic::Max(d_r, *block_r);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        r = amrex::get<0>(hv);
+        as_r.copyToHost(&r, 1);
     }
     else
 #endif
@@ -405,38 +457,42 @@ template <class FAB, class F,
 bool
 ReduceLogicalAnd (FabArray<FAB> const& fa, int nghost, F f)
 {
-    return ReduceLogicalAnd(fa, IntVect(nghost), std::move(f));
-}
-
-template <class FAB, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-bool
-ReduceLogicalAnd (FabArray<FAB> const& fa, IntVect const& nghost, F f)
-{
     int r = true;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpLogicalAnd> reduce_op;
-        ReduceData<int> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<int> as_r(&r, 1);
+        int* d_r = as_r.data();
 
         for (MFIter mfi(fa); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr = fa.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB fab(arr,b.ixType());
-                int tr = f(b,fab);
-                return {tr};
+            FAB const* fab = fa.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(int),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<int> gsm;
+                int* block_r = gsm.dataPtr();
+                int* sdata = block_r + 1;
+
+                int tr = true;
+                for (auto const tbx : Gpu::Range(bx)) {
+                    tr = tr && f(tbx, *fab);
+                }
+                sdata[threadIdx.x] = tr;
+                __syncthreads();
+
+                Gpu::blockReduceAnd<AMREX_CUDA_MAX_THREADS>(sdata, *block_r);
+
+                if (threadIdx.x == 0) Cuda::Atomic::And(d_r, *block_r);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        r = amrex::get<0>(hv);
+        as_r.copyToHost(&r, 1);
     }
     else
 #endif
@@ -460,41 +516,43 @@ bool
 ReduceLogicalAnd (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2,
                   int nghost, F f)
 {
-    return ReduceLogicalAnd(fa1, fa2, IntVect(nghost), std::move(f));
-}
-
-template <class FAB1, class FAB2, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB1>::value> >
-bool
-ReduceLogicalAnd (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2,
-                  IntVect const& nghost, F f)
-{
     int r = true;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpLogicalAnd> reduce_op;
-        ReduceData<int> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<int> as_r(&r, 1);
+        int* d_r = as_r.data();
 
         for (MFIter mfi(fa1); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr1 = fa1.array(mfi);
-            const auto& arr2 = fa2.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB1 fab1(arr1,b.ixType());
-                const FAB2 fab2(arr2,b.ixType());
-                int tr = f(b, fab1, fab2);
-                return {tr};
+            FAB1 const* fab1 = fa1.fabPtr(mfi);
+            FAB2 const* fab2 = fa2.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(int),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<int> gsm;
+                int* block_r = gsm.dataPtr();
+                int* sdata = block_r + 1;
+
+                int tr = true;
+                for (auto const tbx : Gpu::Range(bx)) {
+                    tr = tr && f(tbx, *fab1, *fab2);
+                }
+                sdata[threadIdx.x] = tr;
+                __syncthreads();
+
+                Gpu::blockReduceAnd<AMREX_CUDA_MAX_THREADS>(sdata, *block_r);
+
+                if (threadIdx.x == 0) Cuda::Atomic::And(d_r, *block_r);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        r = amrex::get<0>(hv);
+        as_r.copyToHost(&r, 1);
     }
     else
 #endif
@@ -517,38 +575,42 @@ template <class FAB, class F,
 bool
 ReduceLogicalOr (FabArray<FAB> const& fa, int nghost, F f)
 {
-    return ReduceLogicalOr(fa, IntVect(nghost), std::move(f));
-}
-
-template <class FAB, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-bool
-ReduceLogicalOr (FabArray<FAB> const& fa, IntVect const& nghost, F f)
-{
     int r = false;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpLogicalOr> reduce_op;
-        ReduceData<int> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<int> as_r(&r, 1);
+        int* d_r = as_r.data();
 
         for (MFIter mfi(fa); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr = fa.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB fab(arr,b.ixType());
-                int tr = f(b, fab);
-                return {tr};
+            FAB const* fab = fa.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(int),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<int> gsm;
+                int* block_r = gsm.dataPtr();
+                int* sdata = block_r + 1;
+
+                int tr = false;
+                for (auto const tbx : Gpu::Range(bx)) {
+                    tr = tr || f(tbx, *fab);
+                }
+                sdata[threadIdx.x] = tr;
+                __syncthreads();
+
+                Gpu::blockReduceOr<AMREX_CUDA_MAX_THREADS>(sdata, *block_r);
+
+                if (threadIdx.x == 0) Cuda::Atomic::Or(d_r, *block_r);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        r = amrex::get<0>(hv);
+        as_r.copyToHost(&r, 1);
     }
     else
 #endif
@@ -572,40 +634,43 @@ bool
 ReduceLogicalOr (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2,
                  int nghost, F f)
 {
-    return ReduceLogicalOr(fa1, fa2, IntVect(nghost), std::move(f));
-}
-
-template <class FAB1, class FAB2, class F,
-          class bar = amrex::EnableIf_t<IsBaseFab<FAB1>::value> >
-bool
-ReduceLogicalOr (FabArray<FAB1> const& fa1, FabArray<FAB2> const& fa2,
-                 IntVect const& nghost, F f)
-{
     int r = false;
 
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (Gpu::inLaunchRegion())
     {
-        ReduceOps<ReduceOpLogicalOr> reduce_op;
-        ReduceData<int> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        AsyncArray<int> as_r(&r, 1);
+        int* d_r = as_r.data();
 
         for (MFIter mfi(fa1); mfi.isValid(); ++mfi)
         {
             const Box& bx = amrex::grow(mfi.validbox(),nghost);
-            const auto& arr1 = fa1.array(mfi);
-            const auto& arr2 = fa2.array(mfi);
-            reduce_op.eval(bx, reduce_data,
-            [=] AMREX_GPU_DEVICE (Box const& b) -> ReduceTuple
-            {
-                const FAB1 fab1(arr1,b.ixType());
-                const FAB2 fab2(arr2,b.ixType());
-                int tr = f(b, fab1, fab2);
+            FAB1 const* fab1 = fa1.fabPtr(mfi);
+            FAB2 const* fab2 = fa2.fabPtr(mfi);
+
+            const auto ec = amrex::Cuda::ExecutionConfig(bx);
+
+            amrex::launch_global<<<ec.numBlocks, ec.numThreads, (ec.numThreads.x+1)*sizeof(int),
+                                   Gpu::Device::cudaStream()>>>(
+            [=] AMREX_GPU_DEVICE () {
+                Gpu::SharedMemory<int> gsm;
+                int* block_r = gsm.dataPtr();
+                int* sdata = block_r + 1;
+
+                int tr = false;
+                for (auto const tbx : Gpu::Range(bx)) {
+                    tr = tr || f(tbx, *fab1, *fab2);
+                }
+                sdata[threadIdx.x] = tr;
+                __syncthreads();
+
+                Gpu::blockReduceOr<AMREX_CUDA_MAX_THREADS>(sdata, *block_r);
+
+                if (threadIdx.x == 0) Cuda::Atomic::Or(d_r, *block_r);
             });
         }
 
-        ReduceTuple hv = reduce_data.value();
-        r = amrex::get<0>(hv);
+        as_r.copyToHost(&r, 1);
     }
     else
 #endif
@@ -675,7 +740,7 @@ Add (FabArray<FAB>& dst, FabArray<FAB> const& src, int srccomp, int dstcomp, int
         {
             auto const srcFab = src.array(mfi);
             auto       dstFab = dst.array(mfi);
-            AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( bx, numcomp, i, j, k, n,
+            AMREX_HOST_DEVICE_FOR_4D ( bx, numcomp, i, j, k, n,
             {
                 dstFab(i,j,k,n+dstcomp) += srcFab(i,j,k,n+srccomp);
             });
@@ -707,7 +772,7 @@ Copy (FabArray<FAB>& dst, FabArray<FAB> const& src, int srccomp, int dstcomp, in
         {
             auto const srcFab = src.array(mfi);
             auto       dstFab = dst.array(mfi);
-            AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( bx, numcomp, i, j, k, n,
+            AMREX_HOST_DEVICE_FOR_4D ( bx, numcomp, i, j, k, n,
             {
                 dstFab(i,j,k,dstcomp+n) = srcFab(i,j,k,srccomp+n);
             });
@@ -739,7 +804,7 @@ Subtract (FabArray<FAB>& dst, FabArray<FAB> const& src, int srccomp, int dstcomp
         {
             auto const srcFab = src.array(mfi);
             auto       dstFab = dst.array(mfi);
-            AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( bx, numcomp, i, j, k, n,
+            AMREX_HOST_DEVICE_FOR_4D ( bx, numcomp, i, j, k, n,
             {
                 dstFab(i,j,k,n+dstcomp) -= srcFab(i,j,k,n+srccomp);
             });
@@ -771,7 +836,7 @@ Multiply (FabArray<FAB>& dst, FabArray<FAB> const& src, int srccomp, int dstcomp
         {
             auto const srcFab = src.array(mfi);
             auto       dstFab = dst.array(mfi);
-            AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( bx, numcomp, i, j, k, n,
+            AMREX_HOST_DEVICE_FOR_4D ( bx, numcomp, i, j, k, n,
             {
                 dstFab(i,j,k,n+dstcomp) *= srcFab(i,j,k,n+srccomp);
             });
@@ -803,7 +868,7 @@ Divide (FabArray<FAB>& dst, FabArray<FAB> const& src, int srccomp, int dstcomp, 
         {
             auto const srcFab = src.array(mfi);
             auto       dstFab = dst.array(mfi);
-            AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( bx, numcomp, i, j, k, n,
+            AMREX_HOST_DEVICE_FOR_4D ( bx, numcomp, i, j, k, n,
             {
                 dstFab(i,j,k,n+dstcomp) /= srcFab(i,j,k,n+srccomp);
             });
@@ -834,117 +899,12 @@ Abs (FabArray<FAB>& dst, FabArray<FAB> const& src, int srccomp, int dstcomp, int
         {
             auto const srcFab = src.array(mfi);
             auto       dstFab = dst.array(mfi);
-            AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( bx, numcomp, i, j, k, n,
+            AMREX_HOST_DEVICE_FOR_4D ( bx, numcomp, i, j, k, n,
             {
                 dstFab(i,j,k,n+dstcomp) /= srcFab(i,j,k,n+srccomp);
             });
         }
     }
-}
-
-template <class FAB, class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-void
-prefetchToHost (FabArray<FAB> const& fa, const bool synchronous = true)
-{
-#ifdef AMREX_USE_CUDA
-    for (MFIter mfi(fa, MFItInfo().SetDeviceSync(synchronous)); mfi.isValid(); ++mfi) {
-        fa.prefetchToHost(mfi);
-    }
-#endif
-}
-
-template <class FAB, class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-void
-prefetchToDevice (FabArray<FAB> const& fa, const bool synchronous = true)
-{
-#ifdef AMREX_USE_CUDA
-    for (MFIter mfi(fa, MFItInfo().SetDeviceSync(synchronous)); mfi.isValid(); ++mfi) {
-        fa.prefetchToDevice(mfi);
-    }
-#endif
-}
-
-template <class FAB, class IFAB, class bar = amrex::EnableIf_t<IsBaseFab<FAB>::value
-                                                               && IsBaseFab<IFAB>::value> >
-void
-OverrideSync (FabArray<FAB> & fa, FabArray<IFAB> const& msk, const Periodicity& period)
-{
-    BL_PROFILE("OverrideSync()");
-
-    if (fa.ixType().cellCentered()) return;
-    
-    const int ncomp = fa.nComp();
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    for (MFIter mfi(fa,TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    {
-        const Box& bx = mfi.tilebox();
-        auto fab = fa.array(mfi);
-        auto const ifab = msk.array(mfi);
-        AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( bx, ncomp, i, j, k, n,
-        {
-            if (!ifab(i,j,k)) fab(i,j,k,n) = 0;
-        });
-    }
-    
-    FabArray<FAB> tmpmf(fa.boxArray(), fa.DistributionMap(), ncomp, 0,
-                        MFInfo(), fa.Factory());
-    tmpmf.setVal(0);
-    tmpmf.ParallelCopy(fa, period, FabArrayBase::ADD);
-
-    amrex::Copy(fa, tmpmf, 0, 0, ncomp, 0);
-}
-
-template <class FAB, class foo = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-void
-dtoh_memcpy (FabArray<FAB>& dst, FabArray<FAB> const& src,
-             int scomp, int dcomp, int ncomp)
-{
-    AMREX_ASSERT(isMFIterSafe(dst, src));
-    AMREX_ASSERT(dst.nGrowVect() == src.nGrowVect());
-#ifdef AMREX_USE_GPU
-    for (MFIter mfi(dst); mfi.isValid(); ++mfi) {
-        void* pdst = dst[mfi].dataPtr(dcomp);
-        void const* psrc = src[mfi].dataPtr(scomp);
-        Gpu::dtoh_memcpy_async(pdst, psrc, dst[mfi].nBytes(mfi.fabbox(), dcomp, ncomp));
-    }
-#else
-    Copy(dst, src, scomp, dcomp, ncomp, dst.nGrowVect());
-#endif
-}
-
-template <class FAB, class foo = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-void
-dtoh_memcpy (FabArray<FAB>& dst, FabArray<FAB> const& src)
-{
-    dtoh_memcpy(dst, src, 0, 0, dst.nComp());
-}
-
-template <class FAB, class foo = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-void
-htod_memcpy (FabArray<FAB>& dst, FabArray<FAB> const& src,
-             int scomp, int dcomp, int ncomp)
-{
-    AMREX_ASSERT(isMFIterSafe(dst, src));
-    AMREX_ASSERT(dst.nGrowVect() == src.nGrowVect());
-#ifdef AMREX_USE_GPU
-    for (MFIter mfi(dst); mfi.isValid(); ++mfi) {
-        void* pdst = dst[mfi].dataPtr(dcomp);
-        void const* psrc = src[mfi].dataPtr(scomp);
-        Gpu::htod_memcpy_async(pdst, psrc, dst[mfi].nBytes(mfi.fabbox(), dcomp, ncomp));
-    }
-#else
-    Copy(dst, src, scomp, dcomp, ncomp, dst.nGrowVect());
-#endif
-}
-
-template <class FAB, class foo = amrex::EnableIf_t<IsBaseFab<FAB>::value> >
-void
-htod_memcpy (FabArray<FAB>& dst, FabArray<FAB> const& src)
-{
-    htod_memcpy(dst, src, 0, 0, dst.nComp());
 }
 
 }

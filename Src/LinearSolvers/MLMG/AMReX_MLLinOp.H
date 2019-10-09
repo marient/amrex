@@ -15,20 +15,13 @@
 
 #ifdef AMREX_USE_HYPRE
 #include <AMReX_Hypre.H>
-#include <AMReX_HypreNodeLap.H>
 #endif
 
 namespace amrex {
 
-enum class BottomSolver : int {
-    Default, smoother, bicgstab, cg, bicgcg, cgbicg, hypre, petsc
-};
-
 #ifdef AMREX_USE_PETSC
 class PETScABecLap;
 #endif
-
-class MLMG;
 
 struct LPInfo
 {
@@ -39,12 +32,12 @@ struct LPInfo
     bool has_metric_term = true;
     int max_coarsening_level = 30;
 
-    LPInfo& setAgglomeration (bool x) noexcept { do_agglomeration = x; return *this; }
-    LPInfo& setConsolidation (bool x) noexcept { do_consolidation = x; return *this; }
-    LPInfo& setAgglomerationGridSize (int x) noexcept { agg_grid_size = x; return *this; }
-    LPInfo& setConsolidationGridSize (int x) noexcept { con_grid_size = x; return *this; }
-    LPInfo& setMetricTerm (bool x) noexcept { has_metric_term = x; return *this; }
-    LPInfo& setMaxCoarseningLevel (int n) noexcept { max_coarsening_level = n; return *this; }
+    LPInfo& setAgglomeration (bool x) { do_agglomeration = x; return *this; }
+    LPInfo& setConsolidation (bool x) { do_consolidation = x; return *this; }
+    LPInfo& setAgglomerationGridSize (int x) { agg_grid_size = x; return *this; }
+    LPInfo& setConsolidationGridSize (int x) { con_grid_size = x; return *this; }
+    LPInfo& setMetricTerm (bool x) { has_metric_term = x; return *this; }
+    LPInfo& setMaxCoarseningLevel (int n) { max_coarsening_level = n; return *this; }
 };
 
 class MLLinOp
@@ -80,7 +73,6 @@ public:
                  const LPInfo& a_info,
                  const Vector<FabFactory<FArrayBox> const*>& a_factory);
 
-    virtual std::string name () const { return std::string("Unspecified"); }
 
     /**
     * \brief Boundary of the whole domain. This functions must be called,
@@ -89,21 +81,9 @@ public:
     * \param lobc
     * \param hibc
     */
-    // For single component
     void setDomainBC (const Array<BCType,AMREX_SPACEDIM>& lobc,
-                      const Array<BCType,AMREX_SPACEDIM>& hibc) noexcept;
+                      const Array<BCType,AMREX_SPACEDIM>& hibc);
 
-    // For multi-component
-    void setDomainBC (const Vector<Array<BCType,AMREX_SPACEDIM> >& lobc,
-                      const Vector<Array<BCType,AMREX_SPACEDIM> >& hibc) noexcept;
-
-    // By default, domain BC is on the domain face.  If that's the
-    // case, this function doesn't need to be called.  However, one
-    // could use this function to set non-zero domain BC locations.
-    // Note all values should be >= 0.  If this function is called,
-    // it MUST be called before setLevelBC.
-    void setDomainBCLoc (const Array<Real,AMREX_SPACEDIM>& lo_bcloc,
-                         const Array<Real,AMREX_SPACEDIM>& hi_bcloc) noexcept;
 
     /**
     * \brief Needs coarse data for bc?  If the lowest level grids does not
@@ -111,51 +91,45 @@ public:
     * supplying Dirichlet bc at coarse/fine boundary, even when the
     * domain bc is not Dirichlet.
     */
-    bool needsCoarseDataForBC () const noexcept { return m_needs_coarse_data_for_bc; }
+    bool needsCoarseDataForBC () const { return m_needs_coarse_data_for_bc; }
 
 
     /**
-    * \brief For cell-centered solves only: if we want to do a linear solve 
-    * where the boundary conditions on the coarsest AMR level of the solve 
-    * come from a coarser level (e.g. the base AMR level of the solve is > 0 
-    * and does not cover the entire domain), we must explicitly provide the coarser 
-    * data.  Boundary conditions from a coarser level are always Dirichlet.  
-    * The MultiFab crse does not need to have ghost cells and is at a coarser
-    * resolution than the coarsest AMR level of the solve; it is used to supply
-    * (interpolated) boundary conditions for the solve.  
-    * NOTE: If this is called, it must be called before `setLevelBC`.  
-    * If crse is nullptr, then the bc values are assumed to be zero.
+    * \brief If needs coarse data for bc, this should be called.  MultiFab
+    * crse does not need to have ghost cells.  The data are at coarse
+    * resolution.  If this is called, it *MUST* be called before
+    * `setLevelBC`.  If crse is nullptr, then bc value is assumed to
+    * be zero.
     *
     * \param crse
     * \param crse_ratio
     */
-    void setCoarseFineBC (const MultiFab* crse, int crse_ratio) noexcept;
+    void setCoarseFineBC (const MultiFab* crse, int crse_ratio);
+
 
     /**
-    * \brief For cell-centered solves only: this must be called for each level.  
-    * Argument `levelbcdata` is * used to supply Dirichlet or Neumann bc at the
-    * physical domain; if those data are homogeneous we can pass nullptr instead
-    * of levelbcdata.  Regardless, this function must be called.
-    * If used, the MultiFab levelbcdata must have one ghost cell.
-    * Only the data outside the physical domain at Dirichlet or
-    * inhomogeneous Neumann boundary will be used.  It is assumed that
-    * the data in those ghost cells outside the domain live exactly on
-    * the face of the physical domain.  Argument `amrlev` is relative
-    * level such that the lowest to the solver is always 0.
+    * \brief Must be called for each level.  Argument `levelbcdata` is used
+    * to supply Dirichlet bc at the physical domain.  However, even
+    * if there is no Dirichlet bc, this funcion must still be called.
+    * In that case, argument `levelbcdata` will be ignored and thus
+    * could be nullptr.  The supplied MultiFab must have one ghost
+    * cell.  Only the data outside the physical domain at Dirichlet
+    * boundary will be used.  It is assumed that the data in those
+    * ghost cells outside the domain live exactly on the face of the
+    * physical domain.  Argument `amrlev` is relative level such that
+    * the lowest to the solver is always 0.
     *
     * \param amrlev
     * \param levelbcdata
     */
     virtual void setLevelBC (int amrlev, const MultiFab* levelbcdata) = 0;
 
-    void setVerbose (int v) noexcept { verbose = v; }
+    void setVerbose (int v) { verbose = v; }
 
-    void setMaxOrder (int o) noexcept { maxorder = o; }
-    int getMaxOrder () const noexcept { return maxorder; }
+    void setMaxOrder (int o) { maxorder = o; }
+    int getMaxOrder () const { return maxorder; }
 
-    virtual BottomSolver getDefaultBottomSolver () const { return BottomSolver::bicgstab; }
-    virtual int getNComp () const { return 1; }
-    virtual int getNGrow () const { return 0; }
+    virtual int getNComp() const { return 1; }
 
     virtual bool needsUpdate () const { return false; }
     virtual void update () {}
@@ -190,8 +164,6 @@ public:
     virtual void unapplyMetricTerm (int amrlev, int mglev, MultiFab& rhs) const = 0;
     virtual void fillSolutionBC (int amrlev, MultiFab& sol, const MultiFab* crse_bcdata=nullptr) = 0;
 
-    virtual void applyInhomogNeumannTerm (int armlev, MultiFab& rhs) const {}
-
     virtual void prepareForSolve () = 0;
     virtual bool isSingular (int amrlev) const = 0;
     virtual bool isBottomSingular () const = 0;
@@ -217,10 +189,6 @@ public:
         amrex::Abort("MLLinOp::makeHypre: How did we get here?");
         return {nullptr};
     }
-    virtual std::unique_ptr<HypreNodeLap> makeHypreNodeLap (int bottom_verbose) const {
-        amrex::Abort("MLLinOp::makeHypreNodeLap: How did we get here?");
-        return {nullptr};
-    }
 #endif
 
 #ifdef AMREX_USE_PETSC
@@ -231,11 +199,6 @@ protected:
 
     static constexpr int mg_coarsen_ratio = 2;
     static constexpr int mg_box_min_width = 2;
-#ifdef AMREX_USE_EB
-    static constexpr int mg_domain_min_width = 4;
-#else
-    static constexpr int mg_domain_min_width = 2;
-#endif
 
     LPInfo info;
 
@@ -266,7 +229,7 @@ protected:
     MPI_Comm m_bottom_comm = MPI_COMM_NULL;
     struct CommContainer {
         MPI_Comm comm;
-        CommContainer (MPI_Comm m) noexcept : comm(m) {}
+        CommContainer (MPI_Comm m) : comm(m) {}
         CommContainer (const CommContainer&) = delete;
         CommContainer (CommContainer&&) = delete;
         void operator= (const CommContainer&) = delete;
@@ -280,39 +243,35 @@ protected:
     std::unique_ptr<CommContainer> m_raii_comm;
 
     // BC
-    Vector<Array<BCType, AMREX_SPACEDIM> > m_lobc;
-    Vector<Array<BCType, AMREX_SPACEDIM> > m_hibc;
-    Vector<Array<int, AMREX_SPACEDIM> > m_lo_inhomog_neumann;
-    Vector<Array<int, AMREX_SPACEDIM> > m_hi_inhomog_neumann;
-
-    Array<Real, AMREX_SPACEDIM> m_domain_bloc_lo {{AMREX_D_DECL(0.,0.,0.)}};
-    Array<Real, AMREX_SPACEDIM> m_domain_bloc_hi {{AMREX_D_DECL(0.,0.,0.)}};
+    Array<BCType, AMREX_SPACEDIM> m_lobc {{AMREX_D_DECL(BCType::bogus,BCType::bogus,BCType::bogus)}};
+    Array<BCType, AMREX_SPACEDIM> m_hibc {{AMREX_D_DECL(BCType::bogus,BCType::bogus,BCType::bogus)}};
 
     bool m_needs_coarse_data_for_bc;
     int m_coarse_data_crse_ratio = -1;
     RealVect m_coarse_bc_loc;
     const MultiFab* m_coarse_data_for_bc = nullptr;
 
+
     /**
     * \brief functions
     */
-    int NAMRLevels () const noexcept { return m_num_amr_levels; }
-    int NMGLevels (int amrlev) const noexcept { return m_num_mg_levels[amrlev]; }
-    const Vector<int>& AMRRefRatio () const noexcept { return m_amr_ref_ratio; }
-    int AMRRefRatio (int amr_lev) const noexcept { return m_amr_ref_ratio[amr_lev]; }
+    int NAMRLevels () const { return m_num_amr_levels; }
+    int NMGLevels (int amrlev) const { return m_num_mg_levels[amrlev]; }
+    const Vector<int>& AMRRefRatio () const { return m_amr_ref_ratio; }
+    int AMRRefRatio (int amr_lev) const { return m_amr_ref_ratio[amr_lev]; }
 
-    const Geometry& Geom (int amr_lev, int mglev=0) const noexcept { return m_geom[amr_lev][mglev]; }
-    FabFactory<FArrayBox> const* Factory (int amr_lev, int mglev=0) const noexcept {
+    const Geometry& Geom (int amr_lev, int mglev=0) const { return m_geom[amr_lev][mglev]; }
+    FabFactory<FArrayBox> const* Factory (int amr_lev, int mglev=0) const {
         return m_factory[amr_lev][mglev].get();
     }
 
 #ifdef BL_USE_MPI
-    bool isBottomActive () const noexcept { return m_bottom_comm != MPI_COMM_NULL; }
+    bool isBottomActive () const { return m_bottom_comm != MPI_COMM_NULL; }
 #else
-    bool isBottomActive () const noexcept { return true; }
+    bool isBottomActive () const { return true; }
 #endif
-    MPI_Comm BottomCommunicator () const noexcept { return m_bottom_comm; }
-    MPI_Comm Communicator (int amrlev, int mglev) const noexcept {
+    MPI_Comm BottomCommunicator () const { return m_bottom_comm; }
+    MPI_Comm Communicator (int amrlev, int mglev) const {
         if (amrlev == 0 && mglev == NMGLevels(0)-1) {
             return m_bottom_comm;
         } else {
@@ -320,12 +279,12 @@ protected:
         }
     }
 
-    void setCoarseFineBCLocation (const RealVect& cloc) noexcept { m_coarse_bc_loc = cloc; }
+    void setCoarseFineBCLocation (const RealVect& cloc) { m_coarse_bc_loc = cloc; }
 
-    bool doAgglomeration () const noexcept { return m_do_agglomeration; }
-    bool doConsolidation () const noexcept { return m_do_consolidation; }
+    bool doAgglomeration () const { return m_do_agglomeration; }
+    bool doConsolidation () const { return m_do_consolidation; }
 
-    bool isCellCentered () const noexcept { return m_ixtype == 0; }
+    bool isCellCentered () const { return m_ixtype == 0; }
 
     void make (Vector<Vector<MultiFab> >& mf, int nc, int ng) const;
 
@@ -346,10 +305,6 @@ private:
                                       int ratio, int strategy);
     MPI_Comm makeSubCommunicator (const DistributionMapping& dm);
     void remapNeighborhoods (Vector<DistributionMapping> & dms);
-
-    virtual void checkPoint (std::string const& file_name) const {
-        amrex::Abort("MLLinOp:checkPoint: not implemented");
-    }
 };
 
 }

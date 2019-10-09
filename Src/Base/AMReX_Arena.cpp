@@ -3,15 +3,12 @@
 #include <AMReX_BArena.H>
 #include <AMReX_CArena.H>
 #include <AMReX_DArena.H>
-#include <AMReX_EArena.H>
 
 #include <AMReX.H>
 #include <AMReX_Print.H>
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_Gpu.H>
-
-#include <sys/mman.h>
 
 namespace amrex {
 
@@ -22,12 +19,9 @@ namespace {
     Arena* the_device_arena = nullptr;
     Arena* the_managed_arena = nullptr;
     Arena* the_pinned_arena = nullptr;
-    Arena* the_cpu_arena = nullptr;
 
     bool use_buddy_allocator = false;
     long buddy_allocator_size = 0L;
-    long the_arena_init_size = 0L;
-    bool abort_on_out_of_gpu_memory = false;
 }
 
 const unsigned int Arena::align_size;
@@ -45,72 +39,48 @@ Arena::align (std::size_t s)
 void*
 Arena::allocate_system (std::size_t nbytes)
 {
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     void * p;
     if (arena_info.device_use_hostalloc)
     {
-        AMREX_HIP_OR_CUDA(
-            AMREX_HIP_SAFE_CALL ( hipHostAlloc(&p, nbytes, hipHostMallocMapped));,
-            AMREX_CUDA_SAFE_CALL(cudaHostAlloc(&p, nbytes, cudaHostAllocMapped)););
+        AMREX_GPU_SAFE_CALL(cudaHostAlloc(&p, nbytes, cudaHostAllocMapped));
+    }
+    else if (arena_info.device_use_managed_memory)
+    {
+        AMREX_GPU_SAFE_CALL(cudaMallocManaged(&p, nbytes));
+        if (arena_info.device_set_readonly)
+        {
+            Gpu::Device::mem_advise_set_readonly(p, nbytes);
+        }
+        if (arena_info.device_set_preferred)
+        {
+            const int device = Gpu::Device::deviceId();
+            Gpu::Device::mem_advise_set_preferred(p, nbytes, device);
+        }
     }
     else
     {
-        if (abort_on_out_of_gpu_memory) {
-            std::size_t free_mem_avail = Gpu::Device::freeMemAvailable();
-            if (nbytes >= free_mem_avail) {
-                amrex::Abort("Out of gpu memory. Free: " + std::to_string(free_mem_avail)
-                             + " Asked: " + std::to_string(nbytes));
-            }
-        }
-
-        if (arena_info.device_use_managed_memory)
-        {
-#if defined(__CUDACC__)
-            AMREX_CUDA_SAFE_CALL(cudaMallocManaged(&p, nbytes));
-#else
-            AMREX_HIP_SAFE_CALL(hipMalloc(&p, nbytes));
-#endif
-            if (arena_info.device_set_readonly)
-            {
-                Gpu::Device::mem_advise_set_readonly(p, nbytes);
-            }
-            if (arena_info.device_set_preferred)
-            {
-                const int device = Gpu::Device::deviceId();
-                Gpu::Device::mem_advise_set_preferred(p, nbytes, device);
-            }
-        }
-        else
-        {
-            AMREX_HIP_OR_CUDA(AMREX_HIP_SAFE_CALL ( hipMalloc(&p, nbytes));,
-                              AMREX_CUDA_SAFE_CALL(cudaMalloc(&p, nbytes)););
-        }
+        AMREX_GPU_SAFE_CALL(cudaMalloc(&p, nbytes));
     }
     return p;
 #else
-    void* p = std::malloc(nbytes);
-    if (p && arena_info.device_use_hostalloc) mlock(p, nbytes);
-    if (p == nullptr) amrex::Abort("Sorry, malloc failed");
-    return p;
+    return std::malloc(nbytes);
 #endif
 }
 
 void
-Arena::deallocate_system (void* p, std::size_t nbytes)
+Arena::deallocate_system (void* p)
 {
-#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_CUDA
     if (arena_info.device_use_hostalloc)
     {
-        AMREX_HIP_OR_CUDA(AMREX_HIP_SAFE_CALL ( hipFreeHost(p));,
-                          AMREX_CUDA_SAFE_CALL(cudaFreeHost(p)););
+        AMREX_GPU_SAFE_CALL(cudaFreeHost(p));
     }
     else
     {
-        AMREX_HIP_OR_CUDA(AMREX_HIP_SAFE_CALL ( hipFree(p));,
-                          AMREX_CUDA_SAFE_CALL(cudaFree(p)););
+        AMREX_GPU_SAFE_CALL(cudaFree(p));
     }
 #else
-    if (p && arena_info.device_use_hostalloc) munlock(p, nbytes);
     std::free(p);
 #endif
 }
@@ -125,13 +95,10 @@ Arena::Initialize ()
     BL_ASSERT(the_device_arena == nullptr);
     BL_ASSERT(the_managed_arena == nullptr);
     BL_ASSERT(the_pinned_arena == nullptr);
-    BL_ASSERT(the_cpu_arena == nullptr);
 
     ParmParse pp("amrex");
     pp.query("use_buddy_allocator", use_buddy_allocator);
     pp.query("buddy_allocator_size", buddy_allocator_size);
-    pp.query("the_arena_init_size", the_arena_init_size);
-    pp.query("abort_on_out_of_gpu_memory", abort_on_out_of_gpu_memory);
 
 #ifdef AMREX_USE_GPU
     if (use_buddy_allocator)
@@ -148,13 +115,6 @@ Arena::Initialize ()
     {
 #if defined(BL_COALESCE_FABS) || defined(AMREX_USE_GPU)
         the_arena = new CArena(0, ArenaInfo().SetPreferred());
-#ifdef AMREX_USE_GPU
-        if (the_arena_init_size <= 0) {
-            the_arena_init_size = Gpu::Device::totalGlobalMem() / 4L * 3L;
-        }
-        void *p = the_arena->alloc(static_cast<std::size_t>(the_arena_init_size));
-        the_arena->free(p);
-#endif
 #else
         the_arena = new BArena;
 #endif
@@ -166,19 +126,25 @@ Arena::Initialize ()
     the_device_arena = new BArena;
 #endif
 
-#ifdef AMREX_USE_GPU
+#if defined(AMREX_USE_GPU)
     the_managed_arena = new CArena;
 #else
     the_managed_arena = new BArena;
 #endif
 
-    // When USE_CUDA=FALSE, we call mlock to pin the cpu memory.
-    // When USE_CUDA=TRUE, we call cudaHostAlloc to pin the host memory.
+#if defined(AMREX_USE_GPU)
+//    const std::size_t hunk_size = 64 * 1024;
+//    the_pinned_arena = new CArena(hunk_size);
     the_pinned_arena = new CArena(0, ArenaInfo().SetHostAlloc());
+#else
+    the_pinned_arena = new BArena;
+#endif
 
-    std::size_t N = 1024UL*1024UL*8UL;
+    std::size_t N = 1024*1024*8;
+    void *p = the_arena->alloc(N);
+    the_arena->free(p);
 
-    void *p = the_device_arena->alloc(N);
+    p = the_device_arena->alloc(N);
     the_device_arena->free(p);
 
     p = the_managed_arena->alloc(N);
@@ -186,98 +152,72 @@ Arena::Initialize ()
 
     p = the_pinned_arena->alloc(N);
     the_pinned_arena->free(p);
-
-    the_cpu_arena = new BArena;
 }
 
 void
 Arena::PrintUsage ()
 {
-    const int IOProc = ParallelDescriptor::IOProcessorNumber();
-#ifdef AMREX_USE_GPU
-    {
-        long min_megabytes = Gpu::Device::totalGlobalMem() / (1024*1024);
-        long max_megabytes = min_megabytes;
-        ParallelDescriptor::ReduceLongMin(min_megabytes, IOProc);
-        ParallelDescriptor::ReduceLongMax(max_megabytes, IOProc);
+    if (amrex::Verbose() > 0) {
+        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+        if (The_Arena()) {
+            CArena* p = dynamic_cast<CArena*>(The_Arena());
+            if (p) {
+                long min_kilobytes = p->heap_space_used() / 1024;
+                long max_kilobytes = min_kilobytes;
+                ParallelDescriptor::ReduceLongMin(min_kilobytes, IOProc);
+                ParallelDescriptor::ReduceLongMax(max_kilobytes, IOProc);
 #ifdef AMREX_USE_MPI
-        amrex::Print() << "Total GPU global memory (MB) spread across MPI: ["
-                       << min_megabytes << " ... " << max_megabytes << "]\n";
+                amrex::Print() << "[The         Arena] space (kilobyte) used spread across MPI: ["
+                               << min_kilobytes << " ... " << max_kilobytes << "]\n";
 #else
-        amrex::Print() << "Total GPU global memory (MB): " << min_megabytes << "\n";
+                amrex::Print() << "[The         Arena] space (kilobyte): " << min_kilobytes << "\n";
 #endif
-    }
-    {
-        long min_megabytes = Gpu::Device::freeMemAvailable() / (1024*1024);
-        long max_megabytes = min_megabytes;
-        ParallelDescriptor::ReduceLongMin(min_megabytes, IOProc);
-        ParallelDescriptor::ReduceLongMax(max_megabytes, IOProc);
-#ifdef AMREX_USE_MPI
-        amrex::Print() << "Free  GPU global memory (MB) spread across MPI: ["
-                       << min_megabytes << " ... " << max_megabytes << "]\n";
-#else
-        amrex::Print() << "Free  GPU global memory (MB): " << min_megabytes << "\n";
-#endif
-    }
-#endif
-    if (The_Arena()) {
-        CArena* p = dynamic_cast<CArena*>(The_Arena());
-        if (p) {
-            long min_megabytes = p->heap_space_used() / (1024*1024);
-            long max_megabytes = min_megabytes;
-            ParallelDescriptor::ReduceLongMin(min_megabytes, IOProc);
-            ParallelDescriptor::ReduceLongMax(max_megabytes, IOProc);
-#ifdef AMREX_USE_MPI
-            amrex::Print() << "[The         Arena] space (MB) used spread across MPI: ["
-                           << min_megabytes << " ... " << max_megabytes << "]\n";
-#else
-            amrex::Print() << "[The         Arena] space (MB): " << min_megabytes << "\n";
-#endif
+            }
         }
-    }
-    if (The_Device_Arena()) {
-        CArena* p = dynamic_cast<CArena*>(The_Device_Arena());
-        if (p) {
-            long min_megabytes = p->heap_space_used() / (1024*1024);
-            long max_megabytes = min_megabytes;
-            ParallelDescriptor::ReduceLongMin(min_megabytes, IOProc);
-            ParallelDescriptor::ReduceLongMax(max_megabytes, IOProc);
+        if (The_Device_Arena()) {
+            CArena* p = dynamic_cast<CArena*>(The_Device_Arena());
+            if (p) {
+                long min_kilobytes = p->heap_space_used() / 1024;
+                long max_kilobytes = min_kilobytes;
+                ParallelDescriptor::ReduceLongMin(min_kilobytes, IOProc);
+                ParallelDescriptor::ReduceLongMax(max_kilobytes, IOProc);
 #ifdef AMREX_USE_MPI
-            amrex::Print() << "[The  Device Arena] space (MB) used spread across MPI: ["
-                           << min_megabytes << " ... " << max_megabytes << "]\n";
+                amrex::Print() << "[The  Device Arena] space (kilobyte) used spread across MPI: ["
+                               << min_kilobytes << " ... " << max_kilobytes << "]\n";
 #else
-            amrex::Print() << "[The  Device Arena] space (MB): " << min_megabytes << "\n";
+                amrex::Print() << "[The  Device Arena] space (kilobyte): " << min_kilobytes << "\n";
 #endif
+            }
         }
-    }
-    if (The_Managed_Arena()) {
-        CArena* p = dynamic_cast<CArena*>(The_Managed_Arena());
-        if (p) {
-            long min_megabytes = p->heap_space_used() / (1024*1024);
-            long max_megabytes = min_megabytes;
-            ParallelDescriptor::ReduceLongMin(min_megabytes, IOProc);
-            ParallelDescriptor::ReduceLongMax(max_megabytes, IOProc);
+        if (The_Managed_Arena()) {
+            CArena* p = dynamic_cast<CArena*>(The_Managed_Arena());
+            if (p) {
+                long min_kilobytes = p->heap_space_used() / 1024;
+                long max_kilobytes = min_kilobytes;
+                ParallelDescriptor::ReduceLongMin(min_kilobytes, IOProc);
+                ParallelDescriptor::ReduceLongMax(max_kilobytes, IOProc);
 #ifdef AMREX_USE_MPI
-            amrex::Print() << "[The Managed Arena] space (MB) used spread across MPI: ["
-                           << min_megabytes << " ... " << max_megabytes << "]\n";
+                amrex::Print() << "[The Managed Arena] space (kilobyte) used spread across MPI: ["
+                               << min_kilobytes << " ... " << max_kilobytes << "]\n";
 #else
-            amrex::Print() << "[The Managed Arena] space (MB): " << min_megabytes << "\n";
+                amrex::Print() << "[The Managed Arena] space (kilobyte): " << min_kilobytes << "\n";
 #endif
+            }
         }
-    }
-    if (The_Pinned_Arena()) {
-        CArena* p = dynamic_cast<CArena*>(The_Pinned_Arena());
-        if (p) {
-            long min_megabytes = p->heap_space_used() / (1024*1024);
-            long max_megabytes = min_megabytes;
-            ParallelDescriptor::ReduceLongMin(min_megabytes, IOProc);
-            ParallelDescriptor::ReduceLongMax(max_megabytes, IOProc);
+        if (The_Pinned_Arena()) {
+            CArena* p = dynamic_cast<CArena*>(The_Pinned_Arena());
+            if (p) {
+                long min_kilobytes = p->heap_space_used() / 1024;
+                long max_kilobytes = min_kilobytes;
+                ParallelDescriptor::ReduceLongMin(min_kilobytes, IOProc);
+                ParallelDescriptor::ReduceLongMax(max_kilobytes, IOProc);
 #ifdef AMREX_USE_MPI
-            amrex::Print() << "[The  Pinned Arena] space (MB) used spread across MPI: ["
-                           << min_megabytes << " ... " << max_megabytes << "]\n";
+                amrex::Print() << "[The  Pinned Arena] space (kilobyte) used spread across MPI: ["
+                               << min_kilobytes << " ... " << max_kilobytes << "]\n";
 #else
-            amrex::Print() << "[The  Pinned Arena] space (MB): " << min_megabytes << "\n";
+                amrex::Print() << "[The  Pinned Arena] space (kilobyte): " << min_kilobytes << "\n";
 #endif
+            }
         }
     }
 }
@@ -285,9 +225,7 @@ Arena::PrintUsage ()
 void
 Arena::Finalize ()
 {
-    if (amrex::Verbose() > 0) {
-        PrintUsage();
-    }
+    PrintUsage();
     
     initialized = false;
     
@@ -302,9 +240,6 @@ Arena::Finalize ()
     
     delete the_pinned_arena;
     the_pinned_arena = nullptr;
-
-    delete the_cpu_arena;
-    the_cpu_arena = nullptr;
 }
     
 Arena*
@@ -333,13 +268,6 @@ The_Pinned_Arena ()
 {
     BL_ASSERT(the_pinned_arena != nullptr);
     return the_pinned_arena;
-}
-
-Arena*
-The_Cpu_Arena ()
-{
-    BL_ASSERT(the_cpu_arena != nullptr);
-    return the_cpu_arena;
 }
 
 }

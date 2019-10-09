@@ -1,10 +1,5 @@
 #include <PackageQueue.H>
 #include <iostream>
-using namespace perilla;
-#ifdef PERILLA_DEBUG
-#include <PerillaMemCheck.H>
-extern PerillaMemCheck memcheck;
-#endif
 
 Package::Package()
 {
@@ -17,17 +12,11 @@ Package::Package()
     served = false;
     request = MPI_REQUEST_NULL;
     omp_init_lock(&packageLock);
-#ifdef PERILLA_DEBUG
-    memcheck.add(memcheck.genKey(this), (void*)this, "Package");
-#endif
 }
 
 Package::~Package()
 {
     if(databuf) free(databuf);
-#ifdef PERILLA_DEBUG
-    memcheck.remove(memcheck.genKey(this));
-#endif
 }
 
 Package::Package(int size)
@@ -41,9 +30,6 @@ Package::Package(int size)
     served = false;
     request = MPI_REQUEST_NULL;
     omp_init_lock(&packageLock);
-#ifdef PERILLA_DEBUG
-    memcheck.add(memcheck.genKey(this), (void*)this, "Package");
-#endif
 }
 
 Package::Package(int src, int dest)
@@ -51,9 +37,6 @@ Package::Package(int src, int dest)
     bufSize = 0;
     source = src;
     destination = dest;
-#ifdef PERILLA_DEBUG
-    memcheck.add(memcheck.genKey(this), (void*)this, "Package");
-#endif
 }
 
 Package::Package(int src, int dest, int size)
@@ -69,9 +52,6 @@ Package::Package(int src, int dest, int size)
     served = false;
     request = MPI_REQUEST_NULL;
     omp_init_lock(&packageLock);
-#ifdef PERILLA_DEBUG
-    memcheck.add(memcheck.genKey(this), (void*)this, "Package");
-#endif
 }
 
 void Package::setPackageSource(int src)
@@ -114,9 +94,6 @@ void Package::generatePackage(int size)
     served = false;
     request = MPI_REQUEST_NULL;
     omp_init_lock(&packageLock);
-#ifdef PERILLA_DEBUG
-    memcheck.add(memcheck.genKey(this), (void*)this, "Package");
-#endif
 }
 
 PackageQueue::PackageQueue()
@@ -225,16 +202,3 @@ Package* PackageQueue::getFront(bool lockIgnore)
     if(!lockIgnore) omp_unset_lock(&queueLock);
     return package;
 }
-
-void PackageQueue::emptyQueue(){
-    while(n){
-        Package* p= dequeue(false);
-        delete p;
-    }
-}
-
-PackageQueue::~PackageQueue()
-{
-    emptyQueue();
-}
-

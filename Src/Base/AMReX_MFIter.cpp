@@ -13,9 +13,7 @@ MFIter::MFIter (const FabArrayBase& fabarray_,
     fabArray(fabarray_),
     tile_size((flags_ & Tiling) ? FabArrayBase::mfiter_tile_size : IntVect::TheZeroVector()),
     flags(flags_),
-    streams(Gpu::numGpuStreams()),
     dynamic(false),
-    device_sync(true),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -31,9 +29,7 @@ MFIter::MFIter (const FabArrayBase& fabarray_,
     fabArray(fabarray_),
     tile_size((do_tiling_) ? FabArrayBase::mfiter_tile_size : IntVect::TheZeroVector()),
     flags(do_tiling_ ? Tiling : 0),
-    streams(Gpu::numGpuStreams()),
     dynamic(false),
-    device_sync(true),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -50,9 +46,7 @@ MFIter::MFIter (const FabArrayBase& fabarray_,
     fabArray(fabarray_),
     tile_size(tilesize_),
     flags(flags_ | Tiling),
-    streams(Gpu::numGpuStreams()),
     dynamic(false),
-    device_sync(true),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -70,9 +64,7 @@ MFIter::MFIter (const BoxArray& ba, const DistributionMapping& dm, unsigned char
     fabArray(*m_fa),
     tile_size((flags_ & Tiling) ? FabArrayBase::mfiter_tile_size : IntVect::TheZeroVector()),
     flags(flags_),
-    streams(Gpu::numGpuStreams()),
     dynamic(false),
-    device_sync(true),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -90,9 +82,7 @@ MFIter::MFIter (const BoxArray& ba, const DistributionMapping& dm, bool do_tilin
     fabArray(*m_fa),
     tile_size((do_tiling_) ? FabArrayBase::mfiter_tile_size : IntVect::TheZeroVector()),
     flags(do_tiling_ ? Tiling : 0),
-    streams(Gpu::numGpuStreams()),
     dynamic(false),
-    device_sync(true),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -112,9 +102,7 @@ MFIter::MFIter (const BoxArray& ba, const DistributionMapping& dm,
     fabArray(*m_fa),
     tile_size(tilesize_),
     flags(flags_ | Tiling),
-    streams(Gpu::numGpuStreams()),
     dynamic(false),
-    device_sync(true),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -133,13 +121,11 @@ MFIter::MFIter (const BoxArray& ba, const DistributionMapping& dm, const MFItInf
     fabArray(*m_fa),
     tile_size(info.tilesize),
     flags(info.do_tiling ? Tiling : 0),
-    streams(info.num_streams),
 #ifdef _OPENMP
     dynamic(info.dynamic && (omp_get_num_threads() > 1)),
 #else
     dynamic(false),
 #endif
-    device_sync(info.device_sync),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -163,13 +149,11 @@ MFIter::MFIter (const FabArrayBase& fabarray_, const MFItInfo& info)
     fabArray(fabarray_),
     tile_size(info.tilesize),
     flags(info.do_tiling ? Tiling : 0),
-    streams(info.num_streams),
 #ifdef _OPENMP
     dynamic(info.dynamic && (omp_get_num_threads() > 1)),
 #else
     dynamic(false),
 #endif
-    device_sync(info.device_sync),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -191,13 +175,13 @@ MFIter::MFIter (const FabArrayBase& fabarray_, const MFItInfo& info)
 
 MFIter::~MFIter ()
 {
-#ifdef BL_USE_TEAM
+#if BL_USE_TEAM
     if ( ! (flags & NoTeamBarrier) )
 	ParallelDescriptor::MyTeam().MemoryBarrier();
 #endif
 
 #ifdef AMREX_USE_GPU
-    if (device_sync) Gpu::synchronize();
+    Gpu::Device::synchronize();
 #endif
 
 #ifdef AMREX_USE_GPU
@@ -215,7 +199,6 @@ MFIter::~MFIter ()
 #ifdef AMREX_USE_GPU
     AMREX_GPU_ERROR_CHECK();
     Gpu::Device::resetStreamIndex();
-    Gpu::resetNumCallbacks();
 #endif
 }
 
@@ -308,8 +291,7 @@ MFIter::Initialize ()
 	currentIndex = beginIndex;
 
 #ifdef AMREX_USE_GPU
-	Gpu::Device::setStreamIndex((streams > 0) ? currentIndex%streams : -1);
-        Gpu::resetNumCallbacks();
+	Gpu::Device::setStreamIndex(currentIndex);
 #endif
 
 	typ = fabArray.boxArray().ixType();
@@ -317,7 +299,7 @@ MFIter::Initialize ()
 }
 
 Box 
-MFIter::tilebox () const noexcept
+MFIter::tilebox () const
 { 
     BL_ASSERT(tile_array != 0);
     Box bx((*tile_array)[currentIndex]);
@@ -338,7 +320,7 @@ MFIter::tilebox () const noexcept
 }
 
 Box
-MFIter::tilebox (const IntVect& nodal) const noexcept
+MFIter::tilebox (const IntVect& nodal) const
 {
     BL_ASSERT(tile_array != 0);
     Box bx((*tile_array)[currentIndex]);
@@ -360,7 +342,7 @@ MFIter::tilebox (const IntVect& nodal) const noexcept
 }
 
 Box
-MFIter::tilebox (const IntVect& nodal, const IntVect& ngrow) const noexcept
+MFIter::tilebox (const IntVect& nodal, const IntVect& ngrow) const
 {
     Box bx = tilebox(nodal);
     const Box& vbx = validbox();
@@ -376,7 +358,7 @@ MFIter::tilebox (const IntVect& nodal, const IntVect& ngrow) const noexcept
 }
 
 Box
-MFIter::nodaltilebox (int dir) const noexcept
+MFIter::nodaltilebox (int dir) const 
 { 
     BL_ASSERT(dir < AMREX_SPACEDIM);
     BL_ASSERT(tile_array != 0);
@@ -404,7 +386,7 @@ MFIter::nodaltilebox (int dir) const noexcept
 
 // Note that a small negative ng is supported.
 Box 
-MFIter::growntilebox (int a_ng) const noexcept
+MFIter::growntilebox (int a_ng) const 
 {
     Box bx = tilebox();
     IntVect ngv{a_ng};
@@ -422,7 +404,7 @@ MFIter::growntilebox (int a_ng) const noexcept
 }
 
 Box
-MFIter::growntilebox (const IntVect& ng) const noexcept
+MFIter::growntilebox (const IntVect& ng) const
 {
     Box bx = tilebox();
     const Box& vbx = validbox();
@@ -438,7 +420,7 @@ MFIter::growntilebox (const IntVect& ng) const noexcept
 }
 
 Box
-MFIter::grownnodaltilebox (int dir, int a_ng) const noexcept
+MFIter::grownnodaltilebox (int dir, int a_ng) const
 {
     IntVect ngv(a_ng);
     if (a_ng < -100) ngv = fabArray.nGrowVect();
@@ -446,7 +428,7 @@ MFIter::grownnodaltilebox (int dir, int a_ng) const noexcept
 }
 
 Box
-MFIter::grownnodaltilebox (int dir, IntVect const& a_ng) const noexcept
+MFIter::grownnodaltilebox (int dir, IntVect const& a_ng) const
 {
     BL_ASSERT(dir < AMREX_SPACEDIM);
     Box bx = nodaltilebox(dir);
@@ -463,8 +445,14 @@ MFIter::grownnodaltilebox (int dir, IntVect const& a_ng) const noexcept
 }
 
 void
-MFIter::operator++ () noexcept
+MFIter::operator++ ()
 {
+#ifdef _OPENMP
+    int numOmpThreads = omp_get_num_threads();
+#else
+    int numOmpThreads = 1;
+#endif
+
 #ifdef _OPENMP
     if (dynamic)
     {
@@ -475,19 +463,13 @@ MFIter::operator++ () noexcept
 #endif
     {
 #ifdef AMREX_USE_GPU
-#ifdef _OPENMP
-        int numOmpThreads = omp_get_num_threads();
-#else
-        int numOmpThreads = 1;
-#endif
-        
         bool use_gpu = (numOmpThreads == 1) && Gpu::inLaunchRegion();
         if (use_gpu) {
             if (!real_reduce_list.empty()) {
                 for (int i = 0; i < real_reduce_list[currentIndex].size(); ++i) {
-                    Gpu::dtoh_memcpy_async(&real_reduce_list[currentIndex][i],
-                                           real_device_reduce_list[currentIndex][i],
-                                           sizeof(Real));
+                    Gpu::Device::dtoh_memcpy_async(&real_reduce_list[currentIndex][i],
+                                                   real_device_reduce_list[currentIndex][i],
+                                                   sizeof(Real));
                 }
             }
         }
@@ -497,10 +479,10 @@ MFIter::operator++ () noexcept
 
 #ifdef AMREX_USE_GPU
         if (use_gpu) {
-            Gpu::Device::setStreamIndex((streams > 0) ? currentIndex%streams : -1);
+            Gpu::Device::setStreamIndex(currentIndex);
             AMREX_GPU_ERROR_CHECK();
-#ifdef AMREX_DEBUG
-//            Gpu::synchronize();
+#ifdef DEBUG
+            Gpu::Device::synchronize();
 #endif
         }
 #endif
@@ -547,9 +529,9 @@ MFIter::add_reduce_value(Real* val, MFReducer r)
 
         const int list_idx = real_reduce_list[currentIndex].size() - 1;
 
-        Gpu::htod_memcpy_async(real_device_reduce_list[currentIndex][list_idx],
-                               &real_reduce_list[currentIndex][list_idx],
-                               sizeof(Real));
+        Gpu::Device::htod_memcpy_async(real_device_reduce_list[currentIndex][list_idx],
+                                       &real_reduce_list[currentIndex][list_idx],
+                                       sizeof(Real));
 
         // If we haven't already, store the address to the variable
         // we will update at the end.

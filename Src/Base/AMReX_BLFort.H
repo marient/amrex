@@ -1,7 +1,6 @@
 #ifndef AMREX_BLFORT_H_
 #define AMREX_BLFORT_H_
 
-#include <AMReX_INT.H>
 #include <AMReX_ArrayLim.H>
 #include <AMReX_REAL.H>
 #include <AMReX_SPACE.H>
@@ -9,22 +8,22 @@
 #ifndef BL_LANG_FORT
 
 #if   defined(BL_FORT_USE_UPPERCASE)
-#define AMREX_FORT_NAME(A,B) A
+#define __BL_FORT_NAME__(A,B) A
 #elif defined(BL_FORT_USE_LOWERCASE)
-#define AMREX_FORT_NAME(A,B) B
+#define __BL_FORT_NAME__(A,B) B
 #elif defined(BL_FORT_USE_UNDERSCORE)
-#define AMREX_FORT_NAME(A,B) B##_
+#define __BL_FORT_NAME__(A,B) B##_
 #else
 #error "One of BL_FORT_USE_{UPPERCASE,LOWERCASE,UNDERSCORE} must be defined"
 #endif
 
 #ifdef __cplusplus
-#define BL_FORT_PROC_DECL(A,B) extern "C" void AMREX_FORT_NAME(A,B)
+#define BL_FORT_PROC_DECL(A,B) extern "C" void __BL_FORT_NAME__(A,B)
 #else
-#define BL_FORT_PROC_DECL(A,B) void AMREX_FORT_NAME(A,B)
+#define BL_FORT_PROC_DECL(A,B) void __BL_FORT_NAME__(A,B)
 #endif
-#define BL_FORT_PROC_CALL(A,B) AMREX_FORT_NAME(A,B)
-#define BL_FORT_PROC_NAME(A,B) AMREX_FORT_NAME(A,B)
+#define BL_FORT_PROC_CALL(A,B) __BL_FORT_NAME__(A,B)
+#define BL_FORT_PROC_NAME(A,B) __BL_FORT_NAME__(A,B)
 
 #define BL_FORT_FAB_ARG(A) amrex_real* A##_fab, AMREX_ARLIM_P(A##_lo), AMREX_ARLIM_P(A##_hi)
 #define BL_FORT_IFAB_ARG(A) int* A##_fab, AMREX_ARLIM_P(A##_lo), AMREX_ARLIM_P(A##_hi)
@@ -55,7 +54,7 @@
     { \
       dim3 numBlocks, numThreads; \
       amrex::Gpu::Device::c_threads_and_blocks(box.loVect(), box.hiVect(), numBlocks, numThreads); \
-      function<<<numBlocks, numThreads, 0, amrex::Gpu::gpuStream()>>>(__VA_ARGS__); \
+      function<<<numBlocks, numThreads, 0, amrex::Gpu::Device::cudaStream()>>>(__VA_ARGS__); \
       AMREX_GPU_ERROR_CHECK(); \
     }
 
@@ -91,14 +90,14 @@
       dim3 function##numBlocks, function##numThreads; \
       amrex::Gpu::Device::grid_stride_threads_and_blocks(function##numBlocks, function##numThreads); \
       AMREX_GPU_SAFE_CALL(cudaFuncSetAttribute(&cuda_##function, cudaFuncAttributePreferredSharedMemoryCarveout, 0)); \
-      cuda_##function<<<function##numBlocks, function##numThreads, 0, amrex::Gpu::gpuStream()>>> \
+      cuda_##function<<<function##numBlocks, function##numThreads, 0, amrex::Gpu::Device::cudaStream()>>> \
 
 #else
 
 #define AMREX_DEVICE_LAUNCH(function)                         \
       dim3 function##numBlocks, function##numThreads; \
       amrex::Gpu::Device::grid_stride_threads_and_blocks(function##numBlocks, function##numThreads); \
-      cuda_##function<<<function##numBlocks, function##numThreads, 0, amrex::Gpu::gpuStream()>>> \
+      cuda_##function<<<function##numBlocks, function##numThreads, 0, amrex::Gpu::Device::cudaStream()>>> \
 
 #endif
 

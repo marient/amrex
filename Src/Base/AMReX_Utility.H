@@ -1,3 +1,4 @@
+
 #ifndef BL_UTILITY_H
 #define BL_UTILITY_H
 
@@ -7,9 +8,6 @@
 #include <map>
 #include <chrono>
 #include <type_traits>
-#include <climits>
-#include <limits>
-#include <cfloat>
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -23,7 +21,6 @@
 #include <AMReX_BoxArray.H>
 #include <AMReX_DistributionMapping.H>
 #include <AMReX_ParallelDescriptor.H>
-#include <AMReX_Random.H>
 
 namespace amrex
 {
@@ -173,10 +170,87 @@ namespace amrex
     */
     double InvNormDistBest (double p);
 
+    /**
+    * \brief Generate a psuedo-random double using C++11's mt19937.
+    *
+    *  Generates one pseudorandom real number (double) from a normal
+    *  distribution with mean 'mean' and standard deviation 'stddev'.
+    *
+    */
+    double RandomNormal (double mean, double stddev);
+
+    /**
+    * \brief Generate a psuedo-random double using C++11's mt19937.
+    *
+    *  Generates one pseudorandom real number (double) which is
+    *  uniformly distributed on [0,1)-interval for each call.
+    *
+    */
+    double Random (); // [0,1)
+
+    /**
+    * \brief Generate a psuedo-random int using C++11's mt19937.
+    *
+    *  Generates one pseudorandom unsigned long integer which is
+    *  uniformly distributed on [0,n-1]-interval for each call.
+    *
+    */
+    unsigned long Random_int(unsigned long n); // [0,n-1]
+
+    /** \brief Set the seed of the random number generator.
+    *
+    *  There is also an entry point for Fortran callable as:
+    *
+    *  INTEGER seed
+    *  call blutilinitrand(seed)
+    *
+    *  or
+    *
+    *  INTEGER seed
+    *  call blinitrand(seed)
+    */
+    void InitRandom (unsigned long seed, int nprocs=ParallelDescriptor::NProcs());
+
+    void ResetRandomSeed(unsigned long seed);
+    /**
+    * \brief Save and restore random state.
+    *
+    */
+    void SaveRandomState(std::ostream& os);
+
+    void RestoreRandomState(std::istream& is, int nthreads_old, int nstep_old);
+
+    /**
+    * \brief Create a unique subset of random numbers from a pool
+    *   of integers in the range [0, poolSize - 1]
+    *   the set will be in the order they are found
+    *   setSize must be <= poolSize
+    *   uSet will be resized to setSize
+    *   if you want all processors to have the same set,
+    *   call this on one processor and broadcast the array
+    */
+    void UniqueRandomSubset (Vector<int> &uSet, int setSize, int poolSize,
+                             bool printSet = false);
+
+    /**
+    * \brief Fill binCounts with the number of items for each bin.
+    *   The remainder items are randomly assigned.
+    */
+    void NItemsPerBin (int totalItems, Vector<int> &binCounts);
+
     /* \brief cumulative refinement ratio between levels */
     int CRRBetweenLevels(int fromlevel, int tolevel,
                          const Vector<int> &refratios);
-   
+
+    /* \brief Create a semi-unique hash output to compare Distribution Maps.
+              Use multiple hashes of different sizes to ensure uniqueness. */
+    int HashDistributionMap(const DistributionMapping & dm, int hashSize);
+
+    /* \brief Create a semi-unique hash output to compare BoxArrays
+              Use multiple hashes of different sizes to ensure uniqueness. */
+    int HashBoxArray(const BoxArray & ba, int hashSize);
+
+
     class expect;
     std::istream& operator>>(std::istream&, const expect& exp);
     
@@ -236,18 +310,44 @@ namespace amrex
     void BroadcastStringArray(Vector<std::string> &bSA, int myLocalId, int rootId, const MPI_Comm &localComm);
 
     template<class T> void BroadcastArray(Vector<T> &aT, int myLocalId, int rootId, const MPI_Comm &localComm);
-
     void USleep(double sleepsec);
 
 
     using MaxResSteadyClock = std::conditional<std::chrono::high_resolution_clock::is_steady,
                                                std::chrono::high_resolution_clock,
                                                std::chrono::steady_clock>::type;
-    double second () noexcept;
+    double second ();
 
-    template<typename T> void hash_combine (uint64_t & seed, const T & val) noexcept;
-    template<typename T> uint64_t hash_vector (const Vector<T> & vec, uint64_t seed = 0xDEADBEEFDEADBEEF) noexcept;
+    template<typename T> void hash_combine (uint64_t & seed, const T & val);
+    template<typename T> uint64_t hash_vector (const Vector<T> & vec, uint64_t seed = 0xDEADBEEFDEADBEEF);
 
+    template <class T>
+    AMREX_GPU_HOST_DEVICE
+    AMREX_INLINE const T& min (const T& a, const T& b)
+    {
+        return (b < a) ? b : a;
+    }
+
+    template <class T, class ... Ts>
+    AMREX_GPU_HOST_DEVICE
+    AMREX_INLINE const T& min (const T& a, const T& b, const Ts& ... c)
+    {
+        return min(min(a,b),c...);
+    }
+
+    template <class T>
+    AMREX_GPU_HOST_DEVICE
+    AMREX_INLINE const T& max (const T& a, const T& b)
+    {
+        return (a < b) ? b : a;
+    }
+
+    template <class T, class ... Ts>
+    AMREX_GPU_HOST_DEVICE
+    AMREX_INLINE const T& max (const T& a, const T& b, const Ts& ... c)
+    {
+        return max(max(a,b),c...);
+    }
 }
 
 template<class T> void amrex::BroadcastArray(Vector<T> &aT, int myLocalId, int rootId, const MPI_Comm &localComm)
@@ -378,14 +478,14 @@ DEALINGS IN THE SOFTWARE.
 */
 template<typename T>
 void
-amrex::hash_combine (uint64_t & seed, const T & val) noexcept
+amrex::hash_combine (uint64_t & seed, const T & val)
 {
     seed ^= std::hash<T>()(val) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
 template<typename T>
 uint64_t
-amrex::hash_vector (const Vector<T> & vec, uint64_t seed) noexcept
+amrex::hash_vector (const Vector<T> & vec, uint64_t seed)
 {
     for (const auto & x: vec) {
         hash_combine(seed, x);

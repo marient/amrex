@@ -9,15 +9,14 @@ class RegionQueue
 {
 private:
   int* buffer;
+  int bufSize;
   int n;
   int front;
   int rear;
-  int max_size;
   omp_lock_t queueLock;
 public:
   RegionQueue();
   RegionQueue(int numTasks);
-  ~RegionQueue();
   void addRegion(int r);
   void addRegion(int r, bool lockIgnore);
   int removeRegion();
@@ -26,7 +25,6 @@ public:
   int getFrontRegion(bool lockIgnore);
   int queueSize(bool lockIgnore);
   int queueSize();
-  void reallocate();
 };
 //////////////////////// class RegionQueue Declaration End /////////////////////////////////////
 

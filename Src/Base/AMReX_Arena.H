@@ -1,5 +1,6 @@
-#ifndef AMREX_ARENA_H_
-#define AMREX_ARENA_H_
+
+#ifndef BL_ARENA_H
+#define BL_ARENA_H
 
 #include <AMReX_BLassert.H>
 #include <cstddef>
@@ -13,7 +14,6 @@ Arena* The_Arena ();
 Arena* The_Device_Arena ();
 Arena* The_Managed_Arena ();
 Arena* The_Pinned_Arena ();
-Arena* The_Cpu_Arena ();
 
 struct ArenaInfo
 {
@@ -21,22 +21,22 @@ struct ArenaInfo
     bool device_set_readonly = false;
     bool device_set_preferred = false;
     bool device_use_hostalloc = false;
-    ArenaInfo& SetDeviceMemory () noexcept {
+    ArenaInfo& SetDeviceMemory () {
         device_use_managed_memory = false;
         device_use_hostalloc = false;
         return *this;
     }
-    ArenaInfo& SetReadOnly () noexcept {
+    ArenaInfo& SetReadOnly () {
         BL_ASSERT(device_use_managed_memory);
         device_set_readonly = true;
         return *this;
     }
-    ArenaInfo& SetPreferred () noexcept {
+    ArenaInfo& SetPreferred () {
         BL_ASSERT(device_use_managed_memory);
         device_set_preferred = true;
         return *this;
     }
-    ArenaInfo& SetHostAlloc () noexcept {
+    ArenaInfo& SetHostAlloc () {
         device_use_hostalloc = true;
         device_use_managed_memory = false;
         return *this;
@@ -80,8 +80,8 @@ protected:
     union Word
     {
         void*  p;
-        long long ll;
-        long double ld;
+        double d;
+        long   l;
         void (*f) ();
     };
     static const unsigned int align_size = sizeof(Word);
@@ -92,7 +92,7 @@ protected:
     ArenaInfo arena_info;
 
     void* allocate_system (std::size_t nbytes);
-    void deallocate_system (void* p, std::size_t nbytes);
+    void deallocate_system (void* p);
 };
 
 }

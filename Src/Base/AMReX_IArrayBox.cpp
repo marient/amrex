@@ -43,56 +43,51 @@ IArrayBox::Finalize ()
     initialized = false;
 }
 
-IArrayBox::IArrayBox () noexcept {}
+IArrayBox::IArrayBox () {}
 
-IArrayBox::IArrayBox (Arena* ar) noexcept
-    : BaseFab<int>(ar)
-{}
-
-IArrayBox::IArrayBox (const Box& b, int n, Arena* ar)
-    : BaseFab<int>(b,n,ar)
+IArrayBox::IArrayBox (const Box& b,
+                      int        n,
+		      bool       alloc,
+		      bool       shared)
+    :
+    BaseFab<int>(b,n,alloc,shared)
 {
-#ifndef AMREX_USE_GPU
-    // For debugging purposes
-    if ( do_initval ) {
-	setVal(std::numeric_limits<int>::max());
-    }
-#endif
-}
-
-IArrayBox::IArrayBox (const Box& b, int n, bool alloc, bool shared, Arena* ar)
-    : BaseFab<int>(b,n,alloc,shared,ar)
-{
-#ifndef AMREX_USE_GPU
     // For debugging purposes
     if ( alloc && do_initval ) {
 	setVal(std::numeric_limits<int>::max());
     }
-#endif
 }
 
 IArrayBox::IArrayBox (const IArrayBox& rhs, MakeType make_type, int scomp, int ncomp)
-    : BaseFab<int>(rhs,make_type,scomp,ncomp)
+    :
+    BaseFab<int>(rhs,make_type,scomp,ncomp)
 {
 }
 
+#ifdef AMREX_USE_GPU
+IArrayBox::IArrayBox (const IArrayBox& rhs, MakeType make_type)
+    :
+    BaseFab<int>(rhs,make_type)
+{
+}
+#endif
+
 IArrayBox&
-IArrayBox::operator= (int v) noexcept
+IArrayBox::operator= (int v)
 {
     BaseFab<int>::operator=(v);
     return *this;
 }
 
 void
-IArrayBox::resize (const Box& b, int N)
+IArrayBox::resize (const Box& b,
+                   int        N)
 {
     BaseFab<int>::resize(b,N);
-#ifndef AMREX_USE_GPU
     // For debugging purposes
     if ( do_initval ) {
         setVal(std::numeric_limits<int>::max());
     }
-#endif
 }
 
 }

@@ -1,5 +1,5 @@
-#ifndef AMREX_MultiFabUtil_PERILLAH_
-#define AMREX_MultiFabUtil_PERILLAH_
+#ifndef _MultiFabUtil_PERILLAH_
+#define _MultiFabUtil_PERILLAH_
 
 #ifdef USE_PERILLA
 #include <AMReX_MultiFab.H>

@@ -41,8 +41,6 @@ ifeq ($(which_computer),$(filter $(which_computer),titan))
 
 endif
 
-
-
 ifeq ($(which_computer),$(filter $(which_computer),summitdev))
 
   ifeq ($(USE_MPI),TRUE)
@@ -133,6 +131,8 @@ endif
 endif
 
 
+LIBRARIES += $(ASCENT_LINK_FLAGS)
+
 ifeq ($(which_computer),$(filter $(which_computer),ascent))
 
   ifeq ($(USE_MPI),TRUE)
@@ -145,6 +145,7 @@ ifeq ($(which_computer),$(filter $(which_computer),ascent))
     LIBRARIES += -lmpi_ibm_mpifh -lmpi_ibm
 
   endif
+
 
   ifeq ($(lowercase_comp),gnu)
     override XTRALIBS := -lgfortran

@@ -6,12 +6,12 @@ namespace amrex
 
 namespace
 {
-    ThrustManagedAllocator<char> g_cached_allocator;
+    ThrustDeviceAllocator<char> g_cached_allocator;
 }
 
 namespace Cuda
 {
-    ThrustManagedAllocator<char>& The_ThrustCachedAllocator () { return g_cached_allocator; };
+    ThrustDeviceAllocator<char>& The_ThrustCachedAllocator () { return g_cached_allocator; };
 }
 
 }

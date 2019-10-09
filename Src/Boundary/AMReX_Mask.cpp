@@ -5,21 +5,22 @@
 
 namespace amrex {
 
-Mask::Mask () noexcept
-    : BaseFab<int>() {}
-
-Mask::Mask (Arena* ar) noexcept
-    : BaseFab<int>(ar) {}
-
-Mask::Mask (const Box& bx, int nc, Arena* ar)
-    : BaseFab<int>(bx,nc,ar) {}
-
-Mask::Mask (const Box& bx, int nc, bool alloc, bool shared, Arena* ar)
-    : BaseFab<int>(bx,nc,alloc,shared,ar) {}
-
-Mask::Mask (Mask const& rhs, MakeType make_type, int scomp, int ncomp)
+Mask::Mask ()
     :
-    BaseFab<int>(rhs,make_type,scomp,ncomp) {}
+    BaseFab<int>() {}
+
+Mask::Mask (const Box& bx,
+            int        nc,
+	    bool       alloc,
+	    bool       shared)
+    :
+    BaseFab<int>(bx,nc,alloc,shared) {}
+
+#ifdef AMREX_USE_GPU
+Mask::Mask (Mask const& rhs, MakeType make_type)
+    :
+    BaseFab<int>(rhs,make_type) {}
+#endif
 
 Mask::Mask (std::istream& is)
 {

@@ -8,12 +8,6 @@
 #include <omp.h>
 #include "PerillaRts.H"
 
-using namespace perilla;
-#ifdef PERILLA_DEBUG
-#include <PerillaMemCheck.H>
-PerillaMemCheck memcheck;
-#endif
-
 #include <iostream>
 #include <queue>
 using namespace std;
@@ -49,6 +43,7 @@ namespace perilla{
         }
     }
 
+
     void InitializeMPI(){
 	int provided;
 	MPI_Init_thread(0, 0, MPI_THREAD_FUNNELED, &provided);
@@ -75,9 +70,6 @@ namespace perilla{
     }
 
     void RTS::Finalize(){
-#ifdef PERILLA_DEBUG
-        memcheck.report();
-#endif
     }
 
     void RTS::Iterate(void* amrGraph, int max_step, Real stop_time){

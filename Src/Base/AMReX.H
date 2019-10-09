@@ -10,8 +10,6 @@
 #include <functional>
 #include <string>
 #include <cstdio>
-#include <vector>
-#include <memory>
 
 //
 // Initialize, Finalize, Error Reporting, and Version String Functions
@@ -25,7 +23,6 @@
 
 namespace amrex
 {
-    class AMReX;
 
     typedef void (*PTR_TO_VOID_FUNC)(void);
     typedef void (*ErrorHandler) (const char* msg);
@@ -58,22 +55,19 @@ namespace amrex
 
     std::string Version ();
 
-    // The returned AMReX* is non-owning! To delete it, call Finalize(AMReX*).
-    AMReX* Initialize (MPI_Comm mpi_comm,
-                       std::ostream& a_osout = std::cout,
-                       std::ostream& a_oserr = std::cerr,
-                       ErrorHandler a_errhandler = nullptr);
+    void Initialize (MPI_Comm mpi_comm,
+                     std::ostream& a_osout = std::cout,
+                     std::ostream& a_oserr = std::cerr,
+                     ErrorHandler a_errhandler = nullptr);
 
-    // The returned AMReX* is non-owning! To delete it, call Finalize(AMReX*).
-    AMReX* Initialize (int& argc, char**& argv, bool build_parm_parse=true,
-                       MPI_Comm mpi_comm = MPI_COMM_WORLD,
-                       const std::function<void()>& func_parm_parse = {},
-                       std::ostream& a_osout = std::cout,
-                       std::ostream& a_oserr = std::cerr,
-                       ErrorHandler a_errorhandler = nullptr);
+    void Initialize (int& argc, char**& argv, bool build_parm_parse=true,
+                     MPI_Comm mpi_comm = MPI_COMM_WORLD,
+                     const std::function<void()>& func_parm_parse = {},
+                     std::ostream& a_osout = std::cout,
+                     std::ostream& a_oserr = std::cerr,
+                     ErrorHandler a_errorhandler = nullptr);
 
-    void Finalize (AMReX* pamrex);
-    void Finalize (); // Finalize the current top
+    void Finalize(bool finalize_parallel = true);
     /**
     * \brief We maintain a stack of functions that need to be called in Finalize().
     * The functions are called in LIFO order.  The idea here is to allow
@@ -129,8 +123,8 @@ namespace amrex
     std::ostream& OutStream ();
     std::ostream& ErrorStream ();
 
-    int Verbose () noexcept;
-    void SetVerbose (int v) noexcept;
+    int Verbose ();
+    void SetVerbose (int v);
 
     // ! Get the entire command line including the executable
     std::string get_command ();
@@ -158,38 +152,6 @@ namespace amrex
         std::allocator<double> a_d;
         std::allocator<std::string> a_s;
     }
-
-    class Geometry;
-
-    class AMReX
-    {
-    public:
-        AMReX ();
-        ~AMReX ();
-
-        static bool empty () noexcept { return m_instance.empty(); }
-
-        static int size () noexcept { return m_instance.size(); }
-
-        static AMReX* top () noexcept { return m_instance.back().get(); }
-
-        // Thisfunction will take the ownership of the AMReX pointer,
-        // and put it on the top of the stack (i.e., back of the
-        // vector).  If the pointer is already in the stack, it will
-        // be moved to the top.
-        static void push (AMReX* pamrex);
-
-        // This erases `pamrex` from the stack.
-        static void erase (AMReX* pamrex);
-
-        Geometry* getDefaultGeometry () noexcept { return m_geom; }
-
-    private:
-
-        static std::vector<std::unique_ptr<AMReX> > m_instance;
-
-        Geometry* m_geom = nullptr;
-    };
 }
 
 #endif /*BL_AMREX_H*/

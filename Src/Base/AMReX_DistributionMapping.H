@@ -5,7 +5,6 @@
 #include <limits>
 #include <memory>
 #include <cstddef>
-#include <iostream>
 
 #include <AMReX.H>
 #include <AMReX_Array.H>
@@ -49,21 +48,6 @@ class DistributionMapping
     //! The default constructor.
     DistributionMapping ();
 
-    //! The copy constructor.
-    DistributionMapping (const DistributionMapping& rhs) = default;
-
-    //! The copy assignment operator.
-    DistributionMapping& operator= (const DistributionMapping& rhs) = default;
-
-    //! The move constructor.
-    DistributionMapping (DistributionMapping&& rhs) noexcept = default;
-
-    //! The move assignment operator.
-    DistributionMapping& operator= (DistributionMapping&& rhs) noexcept = default;
-
-   //! The destructor.
-    ~DistributionMapping() noexcept = default;
-
     /**
     * \brief Create an object with the specified mapping.
     */
@@ -78,6 +62,18 @@ class DistributionMapping
     */
     DistributionMapping (const DistributionMapping& d1,
                          const DistributionMapping& d2);
+
+    //! The destructor.
+    ~DistributionMapping ();
+
+    //! Copy constructor.
+    DistributionMapping (const DistributionMapping& rhs);
+
+    //! Assignment operator.
+    DistributionMapping& operator= (const DistributionMapping& rhs);
+
+    //! Move constructor.
+    DistributionMapping (DistributionMapping&& rhs) noexcept;
 
     /**
     * \brief Build mapping out of BoxArray over nprocs processors.
@@ -97,22 +93,18 @@ class DistributionMapping
     * ProcessorMap()[i] is an integer in the interval [0, NCPU) where
     * NCPU is the number of CPUs being used.
     */
-    const Vector<int>& ProcessorMap () const noexcept;
+    const Vector<int>& ProcessorMap () const;
 
     //! Length of the underlying processor map.
-    long size () const noexcept { return m_ref->m_pmap.size(); }
-    long capacity () const noexcept { return m_ref->m_pmap.capacity(); }
-    bool empty () const noexcept { return m_ref->m_pmap.empty(); }
+    long size () const { return m_ref->m_pmap.size(); }
+    long capacity () const { return m_ref->m_pmap.capacity(); }
+    bool empty () const { return m_ref->m_pmap.empty(); }
 
     //! Number of references to this DistributionMapping
-    long linkCount () const noexcept { return m_ref.use_count(); }
+    long linkCount () const { return m_ref.use_count(); }
 
     //! Equivalent to ProcessorMap()[index].
-    int operator[] (int index) const noexcept { return m_ref->m_pmap[index]; }
-
-    std::istream& readFrom (std::istream& is);
-
-    std::ostream& writeOn (std::ostream& os) const;
+    int operator[] (int index) const { return m_ref->m_pmap[index]; }
 
     //! Set/get the distribution strategy.
     static void strategy (Strategy how);
@@ -125,10 +117,10 @@ class DistributionMapping
     static int SFC_Threshold ();
 
     //! Are the distributions equal?
-    bool operator== (const DistributionMapping& rhs) const noexcept;
+    bool operator== (const DistributionMapping& rhs) const;
 
     //! Are the distributions different?
-    bool operator!= (const DistributionMapping& rhs) const noexcept;
+    bool operator!= (const DistributionMapping& rhs) const;
 
     void SFCProcessorMap(const BoxArray& boxes, const std::vector<long>& wgts, int nprocs,
                          bool sort=true);
@@ -186,7 +178,7 @@ private:
     struct LIpairLT
     {
         bool operator () (const LIpair& lhs,
-                          const LIpair& rhs) const noexcept
+                          const LIpair& rhs) const
             {
                 return lhs.first < rhs.first;
             }
@@ -195,7 +187,7 @@ private:
     struct LIpairGT
     {
         bool operator () (const LIpair& lhs,
-                          const LIpair& rhs) const noexcept
+                          const LIpair& rhs) const
             {
                 return lhs.first > rhs.first;
             }
@@ -245,7 +237,7 @@ private:
         friend class DistributionMapping;
 
         //! Constructors to match those in DistributionMapping ....
-        Ref () noexcept {}
+        Ref () {}
 
         explicit Ref (int len) : m_pmap(len) {}
 
@@ -267,12 +259,12 @@ private:
 
 public:
     struct RefID {
-        RefID () noexcept : data(nullptr) {}
-        explicit RefID (Ref* data_) noexcept : data(data_) {}
-        bool operator<  (const RefID& rhs) const noexcept { return std::less<Ref*>()(data,rhs.data); }
-        bool operator== (const RefID& rhs) const noexcept { return data == rhs.data; }
-        bool operator!= (const RefID& rhs) const noexcept { return data != rhs.data; }
-	const Ref *dataPtr() const noexcept { return data; }
+        RefID () : data(nullptr) {}
+        explicit RefID (Ref* data_) : data(data_) {}
+        bool operator<  (const RefID& rhs) const { return std::less<Ref*>()(data,rhs.data); }
+        bool operator== (const RefID& rhs) const { return data == rhs.data; }
+        bool operator!= (const RefID& rhs) const { return data != rhs.data; }
+	const Ref *dataPtr() const { return data; }
 	void PrintPtr(std::ostream &os) const { os << data << '\n'; }
         friend std::ostream& operator<< (std::ostream& os, const RefID& id);
    private:
@@ -280,7 +272,7 @@ public:
     };
 
     //! This gives a unique ID of the reference, which is different from dmID above.
-    RefID getRefID () const noexcept { return RefID { m_ref.get() }; }
+    RefID getRefID () const { return RefID { m_ref.get() }; }
 };
 
 //! Our output operator.

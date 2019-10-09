@@ -4,7 +4,6 @@
 #include <AMReX_Box.H>
 #include <AMReX_BCRec.H>
 #include <AMReX_REAL.H>
-#include <AMReX_GpuControl.H>
 
 namespace amrex {
 
@@ -77,10 +76,9 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Vector<BCRec> const & bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
-                         int              actual_state,
-                         RunOn            gpu_or_cpu) = 0;
+                         int              actual_state) = 0;
 
     /**
     * \brief Re-visit the interpolation to protect against under- or overshoots.
@@ -109,8 +107,7 @@ public:
                           const IntVect&   ratio,
                           const Geometry&  crse_geom,
                           const Geometry&  fine_geom,
-                          Vector<BCRec>&   bcr,
-                          RunOn            gpu_or_cpu) {};
+                          Vector<BCRec>&    bcr) {};
 
     virtual InterpolaterBoxCoarsener BoxCoarsener (const IntVect& ratio);
 
@@ -178,10 +175,9 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Vector<BCRec> const& bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
-                         int              actual_state,
-                         RunOn            gpu_or_cpu) override;
+                         int              actual_state) override;
 };
 
 
@@ -245,10 +241,9 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Vector<BCRec> const& bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
-                         int              actual_state,
-                         RunOn            gpu_or_cpu) override;
+                         int              actual_state) override;
 };
 
 
@@ -277,7 +272,7 @@ public:
     *
     * \param do_linear_limiting_
     */
-    explicit CellConservativeLinear (bool do_linear_limiting_= true);
+    CellConservativeLinear (bool do_linear_limiting_= true);
 
     /**
     * \brief The destructor.
@@ -313,10 +308,9 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Vector<BCRec> const& bcr,
+                         Vector<BCRec>&   bcr,
                          int              /*actual_comp*/,
-                         int              /*actual_state*/,
-                         RunOn            gpu_or_cpu) override;
+                         int              /*actual_state*/) override;
 
 protected:
 
@@ -390,10 +384,9 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Vector<BCRec> const& bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
-                         int              actual_state,
-                         RunOn            gpu_or_cpu) override;
+                         int              actual_state) override;
 
 
     /**
@@ -423,8 +416,7 @@ public:
                           const IntVect&   ratio,
                           const Geometry&  crse_geom,
                           const Geometry&  fine_geom,
-                          Vector<BCRec>&   bcr,
-                          RunOn            gpu_or_cpu) override;
+                          Vector<BCRec>&    bcr) override;
 };
 
 
@@ -445,7 +437,7 @@ public:
     *
     * \param limit
     */
-    explicit CellQuadratic (bool limit = true);
+    CellQuadratic (bool limit = true);
 
     /**
     * \brief The destructor.
@@ -495,10 +487,9 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Vector<BCRec> const& bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
-                         int              actual_state,
-                         RunOn            gpu_or_cpu) override;
+                         int              actual_state) override;
 private:
 
     bool  do_limited_slope;
@@ -563,10 +554,9 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Vector<BCRec> const&  bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
-                         int              actual_state,
-                         RunOn            gpu_or_cpu) override;
+                         int              actual_state) override;
 };
 
 
@@ -632,10 +622,9 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Vector<BCRec> const&  bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
-                         int              actual_state,
-                         RunOn            gpu_or_cpu) override;
+                         int              actual_state) override;
 };
 
 

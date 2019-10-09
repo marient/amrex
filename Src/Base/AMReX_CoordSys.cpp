@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <limits>
 
 #include <AMReX_CoordSys.H>
 #include <AMReX_COORDSYS_C.H>
@@ -7,17 +8,45 @@
 #include <AMReX_ParallelDescriptor.H>
 
 namespace {
-#if (AMREX_SPACEDIM == 2)
     constexpr double  TWOPI = 2.*3.14159265358979323846264338327950288;
-#elif (AMREX_SPACEDIM == 1)
     constexpr double FOURPI = 4.*3.14159265358979323846264338327950288;
-#endif
 }
 
 namespace amrex {
 
+//
+// The definition of static data members.
+//
+CoordSys::CoordType CoordSys::c_sys = CoordSys::undef;
+
+Real CoordSys::offset[AMREX_SPACEDIM];
+
+CoordSys::CoordType
+CoordSys::Coord ()
+{
+    return c_sys;
+}
+
+int
+CoordSys::CoordInt ()
+{
+    switch (c_sys)
+    {
+        case undef:
+            return -1;
+        case cartesian:
+            return 0;
+        case RZ:
+            return 1;
+        case SPHERICAL:
+            return 2;
+        default:
+            return -1;
+    }
+}
+
 void
-CoordSys::SetOffset (const Real* x_lo) noexcept
+CoordSys::SetOffset (const Real* x_lo)
 {
     for (int k = 0; k < AMREX_SPACEDIM; k++)
     {
@@ -25,29 +54,35 @@ CoordSys::SetOffset (const Real* x_lo) noexcept
     }
 }
 
-CoordSys::CoordSys () noexcept
+CoordSys::CoordSys ()
 {
+    AMREX_D_TERM(dx[0]=0;,dx[1]=0;,dx[2]=0;)
+    AMREX_D_TERM(inv_dx[0]=std::numeric_limits<Real>::infinity();,
+           inv_dx[1]=std::numeric_limits<Real>::infinity();,
+           inv_dx[2]=std::numeric_limits<Real>::infinity();)
+    ok = false;
 }
 
-// void
-// CoordSys::define (const Real* cell_dx)
-// {
-//     AMREX_ASSERT(c_sys != undef);
-//     ok = true;
-//     for (int k = 0; k < AMREX_SPACEDIM; k++)
-//     {
-//         dx[k] = cell_dx[k];
-// 	inv_dx[k] = 1.0/dx[k];
-//     }
-// }
-// 
-// CoordSys::CoordSys (const Real* cell_dx)
-// {
-//     define(cell_dx);
-// }
+void
+CoordSys::define (const Real* cell_dx)
+{
+    AMREX_ASSERT(c_sys != undef);
+    ok = true;
+    for (int k = 0; k < AMREX_SPACEDIM; k++)
+    {
+        dx[k] = cell_dx[k];
+	inv_dx[k] = 1.0/dx[k];
+    }
+}
+
+CoordSys::CoordSys (const Real* cell_dx)
+{
+    define(cell_dx);
+}
 
 void
-CoordSys::CellCenter (const IntVect& point, Real* loc) const noexcept
+CoordSys::CellCenter (const IntVect& point,
+                      Real*          loc) const
 {
     AMREX_ASSERT(ok);
     AMREX_ASSERT(loc != 0);
@@ -58,7 +93,8 @@ CoordSys::CellCenter (const IntVect& point, Real* loc) const noexcept
 }
 
 void
-CoordSys::CellCenter (const IntVect& point, Vector<Real>& loc) const noexcept
+CoordSys::CellCenter (const IntVect& point,
+                      Vector<Real>&   loc) const
 {
     AMREX_ASSERT(ok);
     loc.resize(AMREX_SPACEDIM);
@@ -68,7 +104,7 @@ CoordSys::CellCenter (const IntVect& point, Vector<Real>& loc) const noexcept
 void
 CoordSys::LoFace (const IntVect& point,
                   int            dir,
-                  Real*          loc) const noexcept
+                  Real*          loc) const
 {
     AMREX_ASSERT(ok);
     AMREX_ASSERT(loc != 0);
@@ -82,7 +118,7 @@ CoordSys::LoFace (const IntVect& point,
 void
 CoordSys::LoFace (const IntVect& point,
                   int            dir,
-                  Vector<Real>&   loc) const noexcept
+                  Vector<Real>&   loc) const
 {
     loc.resize(AMREX_SPACEDIM);
     LoFace(point,dir, loc.dataPtr());
@@ -91,7 +127,7 @@ CoordSys::LoFace (const IntVect& point,
 void
 CoordSys::HiFace (const IntVect& point,
                   int            dir,
-                  Real*          loc) const noexcept
+                  Real*          loc) const
 {
     AMREX_ASSERT(ok);
     AMREX_ASSERT(loc != 0);
@@ -105,7 +141,7 @@ CoordSys::HiFace (const IntVect& point,
 void
 CoordSys::HiFace (const IntVect& point,
                   int            dir,
-                  Vector<Real>&   loc) const noexcept
+                  Vector<Real>&   loc) const
 {
     loc.resize(AMREX_SPACEDIM);
     HiFace(point,dir, loc.dataPtr());
@@ -113,7 +149,7 @@ CoordSys::HiFace (const IntVect& point,
 
 void
 CoordSys::LoNode (const IntVect& point,
-                  Real*          loc) const noexcept
+                  Real*          loc) const
 {
     AMREX_ASSERT(ok);
     AMREX_ASSERT(loc != 0);
@@ -125,7 +161,7 @@ CoordSys::LoNode (const IntVect& point,
 
 void
 CoordSys::LoNode (const IntVect& point,
-                  Vector<Real>&   loc) const noexcept
+                  Vector<Real>&   loc) const
 {
     loc.resize(AMREX_SPACEDIM);
     LoNode(point, loc.dataPtr());
@@ -133,7 +169,7 @@ CoordSys::LoNode (const IntVect& point,
 
 void
 CoordSys::HiNode (const IntVect& point,
-                  Real*          loc) const noexcept
+                  Real*          loc) const
 {
     AMREX_ASSERT(ok);
     AMREX_ASSERT(loc != 0);
@@ -145,14 +181,14 @@ CoordSys::HiNode (const IntVect& point,
 
 void
 CoordSys::HiNode (const IntVect& point,
-                  Vector<Real>&   loc) const noexcept
+                  Vector<Real>&   loc) const
 {
     loc.resize(AMREX_SPACEDIM);
     HiNode(point, loc.dataPtr());
 }
 
 IntVect
-CoordSys::CellIndex (const Real* point) const noexcept
+CoordSys::CellIndex (const Real* point) const
 {
     AMREX_ASSERT(ok);
     AMREX_ASSERT(point != 0);
@@ -165,7 +201,7 @@ CoordSys::CellIndex (const Real* point) const noexcept
 }
 
 IntVect
-CoordSys::LowerIndex (const Real* point) const noexcept
+CoordSys::LowerIndex (const Real* point) const
 {
     AMREX_ASSERT(ok);
     AMREX_ASSERT(point != 0);
@@ -178,7 +214,7 @@ CoordSys::LowerIndex (const Real* point) const noexcept
 }
 
 IntVect
-CoordSys::UpperIndex(const Real* point) const noexcept
+CoordSys::UpperIndex(const Real* point) const
 {
     AMREX_ASSERT(ok);
     AMREX_ASSERT(point != 0);
@@ -188,6 +224,14 @@ CoordSys::UpperIndex(const Real* point) const noexcept
         ix[k] = (int) ((point[k]-offset[k])/dx[k]);
     }
     return ix;
+}
+
+FArrayBox*
+CoordSys::GetVolume (const Box& region) const 
+{
+    FArrayBox* vol = new FArrayBox();
+    GetVolume(*vol,region);
+    return vol;
 }
 
 void
@@ -211,7 +255,7 @@ CoordSys::SetVolume (FArrayBox& a_volfab,
 #if (AMREX_SPACEDIM == 3)
     AMREX_ASSERT(IsCartesian());
     const Real dv = a_dx[0]*a_dx[1]*a_dx[2];
-    AMREX_HOST_DEVICE_PARALLEL_FOR_3D ( region, i, j, k,
+    AMREX_HOST_DEVICE_FOR_3D ( region, i, j, k,
     {
         vol(i,j,k) = dv;
     });
@@ -234,6 +278,15 @@ CoordSys::GetDLogA (FArrayBox& dloga,
     SetDLogA(dloga,region,dir);
 }
 
+FArrayBox*
+CoordSys::GetDLogA (const Box& region,
+                    int        dir) const
+{
+    FArrayBox* dloga = new FArrayBox();
+    GetDLogA(*dloga,region,dir);
+    return dloga;
+}
+
 void
 CoordSys::SetDLogA (FArrayBox& a_dlogafab,
                     const Box& region,
@@ -246,7 +299,7 @@ CoordSys::SetDLogA (FArrayBox& a_dlogafab,
 
 #if (AMREX_SPACEDIM == 3)
     AMREX_ASSERT(IsCartesian());
-    AMREX_HOST_DEVICE_PARALLEL_FOR_3D ( region, i, j, k,
+    AMREX_HOST_DEVICE_FOR_3D ( region, i, j, k,
     {
         dloga(i,j,k) = 0.;
     });
@@ -259,6 +312,15 @@ CoordSys::SetDLogA (FArrayBox& a_dlogafab,
         amrex_setdloga(tbx, dloga, a_offset, a_dx, dir, coord);
     });
 #endif
+}
+
+FArrayBox*
+CoordSys::GetFaceArea (const Box& region,
+                       int        dir) const
+{
+    FArrayBox* area = new FArrayBox();
+    GetFaceArea(*area,region,dir);
+    return area;
 }
 
 void
@@ -284,7 +346,7 @@ CoordSys::SetFaceArea (FArrayBox& a_areafab,
 #if (AMREX_SPACEDIM == 3)
     AMREX_ASSERT(IsCartesian());
     const Real da = (dir == 0) ? dx[1]*dx[2] : ((dir == 1) ? dx[0]*dx[2] : dx[0]*dx[1]);
-    AMREX_HOST_DEVICE_PARALLEL_FOR_3D ( region, i, j, k,
+    AMREX_HOST_DEVICE_FOR_3D ( region, i, j, k,
     {
         area(i,j,k) = da;
     });
@@ -438,23 +500,19 @@ operator>> (std::istream& is,
     is.ignore(BL_IGNORE_MAX, '(') >> coord;
     c.c_sys = (CoordSys::CoordType) coord;
     AMREX_D_EXPR(is.ignore(BL_IGNORE_MAX, '(') >> c.offset[0],
-                 is.ignore(BL_IGNORE_MAX, ',') >> c.offset[1],
-                 is.ignore(BL_IGNORE_MAX, ',') >> c.offset[2]);
+           is.ignore(BL_IGNORE_MAX, ',') >> c.offset[1],
+           is.ignore(BL_IGNORE_MAX, ',') >> c.offset[2]);
     is.ignore(BL_IGNORE_MAX, ')');
     Real cellsize[3];
     AMREX_D_EXPR(is.ignore(BL_IGNORE_MAX, '(') >> cellsize[0],
-                 is.ignore(BL_IGNORE_MAX, ',') >> cellsize[1],
-                 is.ignore(BL_IGNORE_MAX, ',') >> cellsize[2]);
+           is.ignore(BL_IGNORE_MAX, ',') >> cellsize[1],
+           is.ignore(BL_IGNORE_MAX, ',') >> cellsize[2]);
     is.ignore(BL_IGNORE_MAX, ')');
     int tmp;
     is >> tmp;
     c.ok = tmp?true:false;
     is.ignore(BL_IGNORE_MAX, '\n');
-    for (int k = 0; k < AMREX_SPACEDIM; k++)
-    {
-        c.dx[k] = cellsize[k];
- 	c.inv_dx[k] = 1.0/cellsize[k];
-    }
+    c.define(cellsize);
     return is;
 }
 
@@ -476,8 +534,8 @@ CoordSys::Volume (const Real xlo[AMREX_SPACEDIM],
     {
     case cartesian:
         return AMREX_D_TERM((xhi[0]-xlo[0]),
-                            *(xhi[1]-xlo[1]),
-                            *(xhi[2]-xlo[2]));
+                      *(xhi[1]-xlo[1]),
+                      *(xhi[2]-xlo[2]));
 #if (AMREX_SPACEDIM==2)
     case RZ:
         return (0.5*TWOPI)*(xhi[1]-xlo[1])*(xhi[0]*xhi[0]-xlo[0]*xlo[0]);
@@ -489,7 +547,8 @@ CoordSys::Volume (const Real xlo[AMREX_SPACEDIM],
 }                      
 
 Real
-CoordSys::AreaLo (const IntVect& point, int dir) const noexcept
+CoordSys::AreaLo (const IntVect& point,
+                  int            dir) const
 {
 #if (AMREX_SPACEDIM==2)
     Real xlo[AMREX_SPACEDIM];
@@ -524,7 +583,8 @@ CoordSys::AreaLo (const IntVect& point, int dir) const noexcept
 }
 
 Real
-CoordSys::AreaHi (const IntVect& point, int dir) const noexcept
+CoordSys::AreaHi (const IntVect& point,
+                  int            dir) const
 {
 #if (AMREX_SPACEDIM==2)
     Real xhi[AMREX_SPACEDIM];

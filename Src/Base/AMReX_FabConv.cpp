@@ -270,10 +270,10 @@ ONES_COMP_NEG (long& n,
 
 inline
 int
-_pd_get_bit (char const* base,
-             int         offs,
-             int         nby,
-             const int*  ord)
+_pd_get_bit (char*      base,
+             int        offs,
+             int        nby,
+             const int* ord)
 {
     int n      = offs >> 3;
     int nbytes = n % nby;
@@ -300,11 +300,11 @@ _pd_get_bit (char const* base,
 
 static
 long
-_pd_extract_field (char const* in,
-                   int         offs,
-                   int         nbi,
-                   int         nby,
-                   const int*  ord)
+_pd_extract_field (char*      in,
+                   int        offs,
+                   int        nbi,
+                   int        nby,
+                   const int* ord)
 {
     int ind;
     long bit_field = 0L;
@@ -927,16 +927,10 @@ PD_convert (void*                 out,
                                 ord.order(), ird.order(), ord.numBytes());
     }
     else if (ird == FPC::NativeRealDescriptor() && ord == FPC::Native32RealDescriptor()) {
-      auto rIn = static_cast<const char*>(in);
-      auto rOut= static_cast<char*>(out);
+      const Real *rIn = static_cast<const Real *>(in);
+      float *rOut= static_cast<float *>(out);
       for(long i(0); i < nitems; ++i) {
-        Real x;
-        float y;
-        std::memcpy(&x, rIn, sizeof(Real));
-        y = x;
-        std::memcpy(rOut, &y, sizeof(float));
-        rOut += sizeof(float);
-        rIn += sizeof(Real);
+        rOut[i] = rIn[i];
       }
     }
     else
@@ -1023,7 +1017,7 @@ RealDescriptor::convertToNativeFormat (Real*                 out,
 void
 RealDescriptor::convertFromNativeFormat (void*                 out,
                                          long                  nitems,
-                                         const void*           in,
+                                         const Real*           in,
                                          const RealDescriptor& od)
 {
     BL_PROFILE("RD:convertFromNativeFormat_vp");
@@ -1151,7 +1145,7 @@ RealDescriptor::convertFromNativeDoubleFormat (std::ostream&         os,
                    put,
                    0,
                    od,
-                   FPC::Native64RealDescriptor(),
+                   FPC::NativeRealDescriptor(),
                    FPC::NativeLongDescriptor());
         os.write(bufr, od.numBytes()*put);
         nitems -= put;
@@ -1191,7 +1185,7 @@ RealDescriptor::convertToNativeFloatFormat (float*                out,
 
         if(bAlwaysFixDenormals) {
           PD_fixdenormals(out, get, FPC::Native32RealDescriptor().format(),
-			  FPC::Native32RealDescriptor().order());
+			  FPC::NativeRealDescriptor().order());
         }
         nitems -= get;
         out    += get;
@@ -1227,13 +1221,13 @@ RealDescriptor::convertToNativeDoubleFormat (double*               out,
                    bufr,
                    get,
                    0,
-                   FPC::Native64RealDescriptor(),
+                   FPC::NativeRealDescriptor(),
                    id,
                    FPC::NativeLongDescriptor());
 
         if(bAlwaysFixDenormals) {
-          PD_fixdenormals(out, get, FPC::Native64RealDescriptor().format(),
-			  FPC::Native64RealDescriptor().order());
+          PD_fixdenormals(out, get, FPC::NativeRealDescriptor().format(),
+			  FPC::NativeRealDescriptor().order());
         }
         nitems -= get;
         out    += get;

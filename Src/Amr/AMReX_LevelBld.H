@@ -73,6 +73,6 @@ public:
 
 }
 
-extern AMREX_ATTRIBUTE_WEAK amrex::LevelBld* getLevelBld ();
+extern amrex::LevelBld* getLevelBld ();
 
 #endif /*_LEVELBLD_H_*/

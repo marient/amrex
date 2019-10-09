@@ -43,7 +43,7 @@ MLALaplacian::~MLALaplacian ()
 {}
 
 void
-MLALaplacian::setScalars (Real a, Real b) noexcept
+MLALaplacian::setScalars (Real a, Real b)
 {
     m_a_scalar = a;
     m_b_scalar = b;
@@ -117,9 +117,9 @@ MLALaplacian::prepareForSolve ()
 
     m_is_singular.clear();
     m_is_singular.resize(m_num_amr_levels, false);
-    auto itlo = std::find(m_lobc[0].begin(), m_lobc[0].end(), BCType::Dirichlet);
-    auto ithi = std::find(m_hibc[0].begin(), m_hibc[0].end(), BCType::Dirichlet);
-    if (itlo == m_lobc[0].end() && ithi == m_hibc[0].end())
+    auto itlo = std::find(m_lobc.begin(), m_lobc.end(), BCType::Dirichlet);
+    auto ithi = std::find(m_hibc.begin(), m_hibc.end(), BCType::Dirichlet);
+    if (itlo == m_lobc.end() && ithi == m_hibc.end())
     {  // No Dirichlet
         for (int alev = 0; alev < m_num_amr_levels; ++alev)
         {
@@ -148,10 +148,6 @@ MLALaplacian::Fapply (int amrlev, int mglev, MultiFab& out, const MultiFab& in) 
     const MultiFab& acoef = m_a_coeffs[amrlev][mglev];
 
     const auto dxinv = m_geom[amrlev][mglev].InvCellSizeArray();
-#if (AMREX_SPACEDIM < 3)
-    const Real dx = m_geom[amrlev][mglev].CellSize(0);
-    const Real probxlo = m_geom[amrlev][mglev].ProbLo(0);
-#endif
 
     const Real ascalar = m_a_scalar;
     const Real bscalar = m_b_scalar;
@@ -167,17 +163,18 @@ MLALaplacian::Fapply (int amrlev, int mglev, MultiFab& out, const MultiFab& in) 
         const auto& afab = acoef.array(mfi);
 
 #if (AMREX_SPACEDIM != 3)
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
-            {
-                mlalap_adotx_m(tbx, yfab, xfab, afab, dxinv, ascalar, bscalar, dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
-            {
-                mlalap_adotx(tbx, yfab, xfab, afab, dxinv, ascalar, bscalar);
-            });
-        }
+        const auto& mfac = *m_metric_factor[amrlev][mglev];
+        const auto& rc = mfac.cellCenters(mfi);
+        const auto& re = mfac.cellEdges(mfi);
+        AsyncArray<Real> aa_rc(rc.data(), rc.size());
+        AsyncArray<Real> aa_re(re.data(), re.size());
+        Real const* rcp = aa_rc.data();
+        Real const* rep = aa_re.data();
+        const int rlo = mfi.validbox().smallEnd(0);
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
+        {
+            mlalap_adotx(tbx, yfab, xfab, afab, dxinv, ascalar, bscalar, rcp, rep, rlo);
+        });
 #else
         AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
         {
@@ -195,10 +192,6 @@ MLALaplacian::normalize (int amrlev, int mglev, MultiFab& mf) const
     const MultiFab& acoef = m_a_coeffs[amrlev][mglev];
 
     const auto dxinv = m_geom[amrlev][mglev].InvCellSizeArray();
-#if (AMREX_SPACEDIM < 3)
-    const Real dx = m_geom[amrlev][mglev].CellSize(0);
-    const Real probxlo = m_geom[amrlev][mglev].ProbLo(0);
-#endif
 
     const Real ascalar = m_a_scalar;
     const Real bscalar = m_b_scalar;
@@ -213,17 +206,18 @@ MLALaplacian::normalize (int amrlev, int mglev, MultiFab& mf) const
         const auto& afab = acoef.array(mfi);
 
 #if (AMREX_SPACEDIM != 3)
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
-            {
-                mlalap_normalize_m(tbx, fab, afab, dxinv, ascalar, bscalar, dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
-            {
-                mlalap_normalize(tbx, fab, afab, dxinv, ascalar, bscalar);
-            });
-        }
+        const auto& mfac = *m_metric_factor[amrlev][mglev];
+        const auto& rc = mfac.cellCenters(mfi);
+        const auto& re = mfac.cellEdges(mfi);
+        AsyncArray<Real> aa_rc(rc.data(), rc.size());
+        AsyncArray<Real> aa_re(re.data(), re.size());
+        Real const* rcp = aa_rc.data();
+        Real const* rep = aa_re.data();
+        const int rlo = mfi.validbox().smallEnd(0);
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
+        {
+            mlalap_normalize(tbx, fab, afab, dxinv, ascalar, bscalar, rcp, rep, rlo);
+        });
 #else
         AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bx, tbx,
         {
@@ -270,10 +264,6 @@ MLALaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& rhs
     AMREX_D_TERM(const Real dhx = m_b_scalar*dxinv[0]*dxinv[0];,
                  const Real dhy = m_b_scalar*dxinv[1]*dxinv[1];,
                  const Real dhz = m_b_scalar*dxinv[2]*dxinv[2];);
-#if (AMREX_SPACEDIM < 3)
-    const Real dx = m_geom[amrlev][mglev].CellSize(0);
-    const Real probxlo = m_geom[amrlev][mglev].ProbLo(0);
-#endif
     const Real alpha = m_a_scalar;
 
     MFItInfo mfi_info;
@@ -312,55 +302,41 @@ MLALaplacian::Fsmooth (int amrlev, int mglev, MultiFab& sol, const MultiFab& rhs
 #endif
 #endif
 
-#if (AMREX_SPACEDIM == 1)
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
-            {
-                mlalap_gsrb_m(thread_box, solnfab, rhsfab, alpha, dhx,
-                              afab,
-                              f0fab, m0,
-                              f1fab, m1,
-                              vbx, redblack,
-                              dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
-            {
-                mlalap_gsrb(thread_box, solnfab, rhsfab, alpha, dhx,
-                            afab,
-                            f0fab, m0,
-                            f1fab, m1,
-                            vbx, redblack);
-            });
-        }
+#if (AMREX_SPACEDIM != 3)
+        const auto& mfac = *m_metric_factor[amrlev][mglev];
+        const auto& rc = mfac.cellCenters(mfi);
+        const auto& re = mfac.cellEdges(mfi);
+        AsyncArray<Real> aa_rc(rc.data(), rc.size());
+        AsyncArray<Real> aa_re(re.data(), re.size());
+        Real const* rcp = aa_rc.data();
+        Real const* rep = aa_re.data();
+        const int rlo = m_grids[amrlev][mglev][mfi].smallEnd(0);
+#endif
 
+#if (AMREX_SPACEDIM == 1)
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
+        {
+            mlalap_gsrb(thread_box, solnfab, rhsfab, alpha, dhx,
+                        afab,
+                        f0fab, m0,
+                        f1fab, m1,
+                        vbx, redblack,
+                        rcp, rep, rlo);
+        });
 #endif
 
 #if (AMREX_SPACEDIM == 2)
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
-            {
-                mlalap_gsrb_m(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
-                              afab,
-                              f0fab, m0,
-                              f1fab, m1,
-                              f2fab, m2,
-                              f3fab, m3,
-                              vbx, redblack,
-                              dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
-            {
-                mlalap_gsrb(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
-                            afab,
-                            f0fab, m0,
-                            f1fab, m1,
-                            f2fab, m2,
-                            f3fab, m3,
-                            vbx, redblack);
-            });
-        }
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( tbx, thread_box,
+        {
+            mlalap_gsrb(thread_box, solnfab, rhsfab, alpha, dhx, dhy,
+                        afab,
+                        f0fab, m0,
+                        f1fab, m1,
+                        f2fab, m2,
+                        f3fab, m3,
+                        vbx, redblack,
+                        rcp, rep, rlo);
+        });
 #endif
 
 #if (AMREX_SPACEDIM == 3)
@@ -395,8 +371,16 @@ MLALaplacian::FFlux (int amrlev, const MFIter& mfi,
     const auto& solarr = sol.array();
 
 #if (AMREX_SPACEDIM != 3)
-    const Real dx = m_geom[amrlev][mglev].CellSize(0);
-    const Real probxlo = m_geom[amrlev][mglev].ProbLo(0);
+    const auto& mfac = *m_metric_factor[amrlev][mglev];
+    const auto& re = mfac.cellEdges(mfi);
+    AsyncArray<Real> aa_re(re.data(), re.size());
+    Real const* rep = aa_re.data();
+    const int rlo = m_grids[amrlev][mglev][mfi].smallEnd(0);
+#if (AMREX_SPACEDIM == 2)
+    const auto& rc = mfac.cellCenters(mfi);
+    AsyncArray<Real> aa_rc(rc.data(), rc.size());
+    Real const* rcp = aa_rc.data();
+#endif
 #endif
 
 #if (AMREX_SPACEDIM == 3)
@@ -447,89 +431,47 @@ MLALaplacian::FFlux (int amrlev, const MFIter& mfi,
         Real fac = m_b_scalar * dxinv[0];
         Box blo = amrex::bdryLo(box, 0);
         int blen = box.length(0);
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( blo, tbox,
-            {
-                mlalap_flux_xface_m(tbox, fxarr, solarr, fac, blen, dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( blo, tbox,
-            {
-                mlalap_flux_xface(tbox, fxarr, solarr, fac, blen);
-            });
-        }
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( blo, tbox,
+        {
+            mlalap_flux_xface(tbox, fxarr, solarr, fac, blen, rep, rlo);
+        });
         fac = m_b_scalar * dxinv[1];
         blo = amrex::bdryLo(box, 1);
         blen = box.length(1);
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( blo, tbox,
-            {
-                mlalap_flux_yface_m(tbox, fyarr, solarr, fac, blen, dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( blo, tbox,
-            {
-                mlalap_flux_yface(tbox, fyarr, solarr, fac, blen);
-            });
-        }
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( blo, tbox,
+        {
+            mlalap_flux_yface(tbox, fyarr, solarr, fac, blen, rcp, rlo);
+        });
     } else {
         Real fac = m_b_scalar * dxinv[0];
         Box bflux = amrex::surroundingNodes(box, 0);
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bflux, tbox,
-            {
-                mlalap_flux_x_m(tbox, fxarr, solarr, fac, dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bflux, tbox,
-            {
-                mlalap_flux_x(tbox, fxarr, solarr, fac);
-            });
-        }
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bflux, tbox,
+        {
+            mlalap_flux_x(tbox, fxarr, solarr, fac, rep, rlo);
+        });
         fac = m_b_scalar * dxinv[1];
         bflux = amrex::surroundingNodes(box, 1);
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bflux, tbox,
-            {
-                mlalap_flux_y_m(tbox, fyarr, solarr, fac, dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bflux, tbox,
-            {
-                mlalap_flux_y(tbox, fyarr, solarr, fac);
-            });
-        }
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bflux, tbox,
+        {
+            mlalap_flux_y(tbox, fyarr, solarr, fac, rcp, rlo);
+        });
     }
 #else
     if (face_only) {
         Real fac = m_b_scalar * dxinv[0];
         Box blo = amrex::bdryLo(box, 0);
         int blen = box.length(0);
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( blo, tbox,
-            {
-                mlalap_flux_xface_m(tbox, fxarr, solarr, fac, blen, dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( blo, tbox,
-            {
-                mlalap_flux_xface(tbox, fxarr, solarr, fac, blen);
-            });
-        }
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( blo, tbox,
+        {
+            mlalap_flux_xface(tbox, fxarr, solarr, fac, blen, rep, rlo);
+        });
     } else {
         Real fac = m_b_scalar * dxinv[0];
         Box bflux = amrex::surroundingNodes(box, 0);
-        if (m_has_metric_term) {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bflux, tbox,
-            {
-                mlalap_flux_x_m(tbox, fxarr, solarr, fac, dx, probxlo);
-            });
-        } else {
-            AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bflux, tbox,
-            {
-                mlalap_flux_x(tbox, fxarr, solarr, fac);
-            });
-        }
+        AMREX_LAUNCH_HOST_DEVICE_LAMBDA ( bflux, tbox,
+        {
+            mlalap_flux_x(tbox, fxarr, solarr, fac, rep, rlo);
+        });
     }
 #endif
 }

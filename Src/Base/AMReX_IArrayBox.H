@@ -36,12 +36,7 @@ class IArrayBox
 {
 public:
     //! Construct an invalid FAB with no memory.
-    IArrayBox () noexcept;
-
-    explicit IArrayBox (Arena* ar) noexcept;
-
-    IArrayBox (const Box& b, int ncomp, Arena* ar);
-
+    IArrayBox ();
     /**
     * \brief Construct an initial FAB with the data space allocated but
     * not inititialized. ncomp is the number of components
@@ -50,26 +45,16 @@ public:
     explicit IArrayBox (const Box& b,
                         int        ncomp=1,
 			bool       alloc=true,
-			bool       shared=false,
-                        Arena*     ar = nullptr);
+			bool       shared=false);
 
     IArrayBox (const IArrayBox& rhs, MakeType make_type, int scomp, int ncomp);
 
-    AMREX_GPU_HOST_DEVICE
-    explicit IArrayBox (Array4<int> const& a) noexcept : BaseFab<int>(a) {}
-
-    AMREX_GPU_HOST_DEVICE
-    explicit IArrayBox (Array4<int> const& a, IndexType t) noexcept : BaseFab<int>(a,t) {}
-
-    AMREX_GPU_HOST_DEVICE
-    explicit IArrayBox (Array4<int const> const& a) noexcept : BaseFab<int>(a) {}
-
-    AMREX_GPU_HOST_DEVICE
-    explicit IArrayBox (Array4<int const> const& a, IndexType t) noexcept : BaseFab<int>(a,t) {}
+#ifdef AMREX_USE_GPU
+    IArrayBox (const IArrayBox& rhs, MakeType make_type);
+#endif
 
     //!  The destructor.
-    AMREX_GPU_HOST_DEVICE
-    ~IArrayBox () noexcept {}
+    ~IArrayBox () = default;
 
     IArrayBox (IArrayBox&& rhs) noexcept = default;
 
@@ -78,7 +63,7 @@ public:
     IArrayBox& operator= (IArrayBox&&) = delete;
 
     //! Set the fab to the value r.
-    IArrayBox& operator= (int r) noexcept;
+    IArrayBox& operator= (int r);
 
     //! For debugging purposes we hide BaseFab version and do some extra work.
     void resize (const Box& b,

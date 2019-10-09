@@ -12,7 +12,7 @@ namespace amrex {
 //
 int BndryData::NTangHalfWidth = 5;  // ref_ratio + 1, so won't work if ref_ratio > 4
 
-BndryData::BndryData () noexcept
+BndryData::BndryData ()
     :
     m_ncomp(-1), m_defined(false) {}
 
@@ -32,7 +32,7 @@ void
 BndryData::setBoundCond (Orientation     _face,
                          int              _n,
                          int              _comp,
-                         const BoundCond& _bcn) noexcept
+                         const BoundCond& _bcn)
 {
     bcond[_n][_face][_comp] = _bcn;
 }
@@ -41,7 +41,7 @@ void
 BndryData::setBoundCond (Orientation     _face,
                          const MFIter&   mfi,
                          int              _comp,
-                         const BoundCond& _bcn) noexcept
+                         const BoundCond& _bcn)
 {
     bcond[mfi][_face][_comp] = _bcn;
 }
@@ -49,7 +49,7 @@ BndryData::setBoundCond (Orientation     _face,
 void
 BndryData::setBoundLoc (Orientation _face,
                         int         _n,
-                        Real        _val) noexcept
+                        Real        _val)
 {
     bcloc[_n][_face] = _val;
 }
@@ -57,31 +57,31 @@ BndryData::setBoundLoc (Orientation _face,
 void
 BndryData::setBoundLoc (Orientation _face,
                         const MFIter& mfi,
-                        Real        _val) noexcept
+                        Real        _val)
 {
     bcloc[mfi][_face] = _val;
 }
 
 const Vector< Vector<BoundCond> >&
-BndryData::bndryConds (int igrid) const noexcept
+BndryData::bndryConds (int igrid) const
 {
     return bcond[igrid];
 }
 
 const Vector< Vector<BoundCond> >&
-BndryData::bndryConds (const MFIter& mfi) const noexcept
+BndryData::bndryConds (const MFIter& mfi) const
 {
     return bcond[mfi];
 }
 
 const BndryData::RealTuple&
-BndryData::bndryLocs (int igrid) const noexcept
+BndryData::bndryLocs (int igrid) const
 {
     return bcloc[igrid];
 }
 
 const BndryData::RealTuple&
-BndryData::bndryLocs (const MFIter& mfi) const noexcept
+BndryData::bndryLocs (const MFIter& mfi) const
 {
     return bcloc[mfi];
 }
@@ -191,13 +191,13 @@ BndryData::define (const BoxArray& _grids,
 }
 
 void
-BndryData::setValue (Orientation face, int n, Real val) noexcept
+BndryData::setValue (Orientation face, int n, Real val)
 {
     auto& fab = bndry[face][n]; 
     auto arr = fab.array();
     const Box& bx = fab.box();
     const int ncomp = m_ncomp;
-    AMREX_HOST_DEVICE_PARALLEL_FOR_4D ( bx, ncomp, i, j, k, m,
+    AMREX_HOST_DEVICE_FOR_4D ( bx, ncomp, i, j, k, m,
     {
         arr(i,j,k,m) = val;
     });

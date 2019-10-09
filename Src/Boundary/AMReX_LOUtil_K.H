@@ -18,8 +18,8 @@ namespace amrex {
 //
 //  P(xInt) = sum_(i=1)^(N) y[i]*c[i]
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void poly_interp_coeff (Real xInt, Real const* AMREX_RESTRICT x, int N, Real* AMREX_RESTRICT c) noexcept
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void poly_interp_coeff (Real xInt, Real const* AMREX_RESTRICT x, int N, Real* AMREX_RESTRICT c)
 {
     for (int j = 0; j < N; ++j) {
         Real num = 1.0, den = 1.0;

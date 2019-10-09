@@ -12,19 +12,12 @@ class CutFab
 public:
 
     CutFab () {}
-
-    explicit CutFab (Arena* ar) : FArrayBox(ar) {}
-
-    CutFab (const Box& b, int n, Arena* ar)
-        : FArrayBox(b, n, ar) {}
-
-    CutFab (const Box& b, int ncomps, bool alloc=true,
-            bool shared=false, Arena* ar = nullptr)
-        : FArrayBox(b, ncomps, alloc, shared, ar) {}
+    CutFab (const Box& b, int ncomps, bool alloc=true, bool shared=false)
+        : FArrayBox(b, ncomps, alloc, shared) {}
 
 #ifdef AMREX_USE_GPU
-    CutFab (CutFab const& rhs, MakeType make_type, int scomp, int ncomp)
-        : FArrayBox(rhs, make_type, scomp, ncomp) {}
+    CutFab (CutFab const& rhs, MakeType make_type)
+        : FArrayBox(rhs, make_type) {}
 #endif
 
     ~CutFab () = default;
@@ -97,24 +90,20 @@ public:
     void define (const BoxArray& ba, const DistributionMapping& dm,
                  int ncomp, int ngrow, const FabArray<EBCellFlagFab>& cellflags);
 
-    const CutFab& operator[] (const MFIter& mfi) const noexcept;
-    CutFab& operator[] (const MFIter& mfi) noexcept;
+    const CutFab& operator[] (const MFIter& mfi) const;
+    CutFab& operator[] (const MFIter& mfi);
 
-    Array4<Real      > array (const MFIter& mfi) noexcept;
-    Array4<Real const> array (const MFIter& mfi) const noexcept;
-    Array4<Real const> const_array (const MFIter& mfi) const noexcept;
-
-    bool ok (const MFIter& mfi) const noexcept;
+    bool ok (const MFIter& mfi) const;
 
     void setVal (Real val);
 
-    FabArray<CutFab>& data () noexcept { return m_data; }
-    const FabArray<CutFab>& data () const noexcept { return m_data; }
+    FabArray<CutFab>& data () { return m_data; }
+    const FabArray<CutFab>& data () const { return m_data; }
 
-    const BoxArray& boxArray () const noexcept { return m_data.boxArray(); }
-    const DistributionMapping& DistributionMap () const noexcept { return m_data.DistributionMap(); }
-    int nComp () const noexcept { return m_data.nComp(); }
-    int nGrow () const noexcept { return m_data.nGrow(); }
+    const BoxArray& boxArray () const { return m_data.boxArray(); }
+    const DistributionMapping& DistributionMap () const { return m_data.DistributionMap(); }
+    int nComp () const { return m_data.nComp(); }
+    int nGrow () const { return m_data.nGrow(); }
 
     void ParallelCopy (const MultiCutFab& src, int scomp, int dcomp, int ncomp, int sng, int dng,
                        const Periodicity& period = Periodicity::NonPeriodic());

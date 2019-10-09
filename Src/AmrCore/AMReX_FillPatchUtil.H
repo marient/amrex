@@ -7,10 +7,6 @@
 #include <AMReX_Interpolater.H>
 #include <AMReX_Array.H>
 
-#ifdef AMREX_USE_EB
-#include <AMReX_EB2.H>
-#endif
-
 namespace amrex
 {
     class InterpHook {
@@ -47,22 +43,6 @@ namespace amrex
                              const Vector<BCRec>& bcs, int bcscomp,
                              const InterpHook& pre_interp = NullInterpHook(),
                              const InterpHook& post_interp = NullInterpHook());
-
-#ifdef AMREX_USE_EB
-    void FillPatchTwoLevels (MultiFab& mf, Real time,
-                             const EB2::IndexSpace& index_space,
-			     const Vector<MultiFab*>& cmf, const Vector<Real>& ct,
-			     const Vector<MultiFab*>& fmf, const Vector<Real>& ft,
-			     int scomp, int dcomp, int ncomp,
-			     const Geometry& cgeom, const Geometry& fgeom,
-			     PhysBCFunctBase& cbc, int cbccomp,
-                             PhysBCFunctBase& fbc, int fbccomp,
-			     const IntVect& ratio,
-			     Interpolater* mapper,
-                             const Vector<BCRec>& bcs, int bcscomp,
-                             const InterpHook& pre_interp,
-                             const InterpHook& post_interp);
-#endif
 
     void InterpFromCoarseLevel (MultiFab& mf, Real time,
 				const MultiFab& cmf, int scomp, int dcomp, int ncomp,

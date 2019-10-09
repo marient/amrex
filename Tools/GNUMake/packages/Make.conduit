@@ -11,7 +11,7 @@ ifdef CONDUIT_DIR
   VPATH_LOCATIONS   += $(CONDUIT_DIR)/include
   VPATH_LOCATIONS   += $(CONDUIT_DIR)/include/conduit
   LIBRARY_LOCATIONS += $(CONDUIT_DIR)/lib
-  LIBRARIES += -Wl,-rpath,$(CONDUIT_DIR)/lib -lconduit -lconduit_blueprint -lconduit_relay
+  LIBRARIES +=  -lconduit -lconduit_blueprint -lconduit_relay
   
   ifeq ($(USE_MPI), TRUE)
      LIBRARIES += -lconduit_relay_mpi

@@ -36,23 +36,13 @@ AmrMesh::AmrMesh ()
     InitAmrMesh(max_level_in,n_cell_in);
 }
 
-AmrMesh::AmrMesh (const RealBox* rb, int max_level_in,
-                  const Vector<int>& n_cell_in, int coord,
-                  Vector<IntVect> a_refrat, const int* is_per)
+AmrMesh::AmrMesh (const RealBox* rb, int max_level_in, const Vector<int>& n_cell_in, int coord,
+                  std::vector<int> a_refrat)
 {
-    Initialize();
-    Geometry::Setup(rb,coord,is_per);
-    InitAmrMesh(max_level_in,n_cell_in, std::move(a_refrat), rb, coord, is_per);
-}
+  Initialize();
 
-AmrMesh::AmrMesh (const RealBox& rb, int max_level_in,
-                  const Vector<int>& n_cell_in, int coord,
-                  const Vector<IntVect>& a_refrat,
-                  const Array<int,AMREX_SPACEDIM>& is_per)
-{
-    Initialize();
-    Geometry::Setup(&rb,coord,is_per.data());
-    InitAmrMesh(max_level_in,n_cell_in, a_refrat, &rb, coord, is_per.data());
+  Geometry::Setup(rb,coord);
+  InitAmrMesh(max_level_in,n_cell_in, a_refrat);
 }
 
 AmrMesh::~AmrMesh ()
@@ -61,9 +51,7 @@ AmrMesh::~AmrMesh ()
 }
 
 void
-AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in,
-                      Vector<IntVect> a_refrat, const RealBox* rb,
-                      int coord, const int* is_per)
+AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in, std::vector<int> a_refrat)
 {
     verbose   = 0;
     grid_eff  = 0.7;
@@ -98,11 +86,12 @@ AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in,
     grids.resize(nlev);
 
     for (int i = 0; i < nlev; ++i) {
-        n_error_buf[i]     = IntVect{AMREX_D_DECL(1,1,1)};
+	n_error_buf[i] = 1;
         blocking_factor[i] = IntVect{AMREX_D_DECL(8,8,8)};
-        max_grid_size[i]   = (AMREX_SPACEDIM == 2) ? IntVect{AMREX_D_DECL(128,128,128)}
-                                                   : IntVect{AMREX_D_DECL(32,32,32)};
+        max_grid_size[i] = (AMREX_SPACEDIM == 2) ? IntVect{AMREX_D_DECL(128,128,128)}
+                                                 : IntVect{AMREX_D_DECL(32,32,32)};
     }
+
 
     // Make the default ref_ratio = 2 for all levels.
     ref_ratio.resize(max_level);
@@ -115,62 +104,11 @@ AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in,
     pp.query("grid_eff",grid_eff);
     int cnt = pp.countval("n_error_buf");
     if (cnt > 0) {
-        Vector<int> neb;
-        pp.getarr("n_error_buf",neb);
-        int n = std::min(cnt, max_level+1);
-        for (int i = 0; i < n; ++i) {
-            n_error_buf[i] = IntVect(neb[i]);
-        }
-        for (int i = n; i <= max_level; ++i) {
-            n_error_buf[i] = IntVect(neb[cnt-1]);
+        pp.getarr("n_error_buf",n_error_buf);
+        for (int i = cnt; i < nlev; ++i) {
+            n_error_buf[i] = n_error_buf[cnt-1];
         }
     }
-
-    cnt = pp.countval("n_error_buf_x");
-    if (cnt > 0) {
-        int idim = 0;
-        Vector<int> neb;
-        pp.getarr("n_error_buf_x",neb);
-        int n = std::min(cnt, max_level+1);
-        for (int i = 0; i < n; ++i) {
-            n_error_buf[i][idim] = neb[i];
-        }
-        for (int i = n; i <= max_level; ++i) {
-            n_error_buf[i][idim] = neb[n-1];
-        }
-    }
-
-#if (AMREX_SPACEDIM > 1)
-    cnt = pp.countval("n_error_buf_y");
-    if (cnt > 0) {
-        int idim = 1;
-        Vector<int> neb;
-        pp.getarr("n_error_buf_y",neb);
-        int n = std::min(cnt, max_level+1);
-        for (int i = 0; i < n; ++i) {
-            n_error_buf[i][idim] = neb[i];
-        }
-        for (int i = n; i <= max_level; ++i) {
-            n_error_buf[i][idim] = neb[n-1];
-        }
-    }
-#endif
-
-#if (AMREX_SPACEDIM == 3)
-    cnt = pp.countval("n_error_buf_z");
-    if (cnt > 0) {
-        int idim = 2;
-        Vector<int> neb;
-        pp.getarr("n_error_buf_z",neb);
-        int n = std::min(cnt, max_level+1);
-        for (int i = 0; i < n; ++i) {
-            n_error_buf[i][idim] = neb[i];
-        }
-        for (int i = n; i <= max_level; ++i) {
-            n_error_buf[i][idim] = neb[n-1];
-        }
-    }
-#endif
 
     // Read in the refinement ratio IntVects as integer AMREX_SPACEDIM-tuples.
     if (max_level > 0)
@@ -226,7 +164,8 @@ AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in,
     {
       for (int i = 0; i < max_level; i++)
       {
-          ref_ratio[i] = a_refrat[i];
+        for (int n = 0; n < AMREX_SPACEDIM; n++)
+          ref_ratio[i][n] = a_refrat[i];
       }
     }
 
@@ -359,11 +298,18 @@ AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in,
 	Box index_domain(lo,hi);
 	for (int i = 0; i <= max_level; i++)
 	{
-	    geom[i].define(index_domain, rb, coord, is_per);
-	    if (i < max_level) {
-                index_domain.refine(ref_ratio[i]);
-            }
+	    geom[i].define(index_domain);
+	    if (i < max_level)
+		index_domain.refine(ref_ratio[i]);
 	}
+
+	Real offset[AMREX_SPACEDIM];
+	for (int i = 0; i < AMREX_SPACEDIM; i++)
+	{
+	    const Real delta = Geometry::ProbLength(i)/(Real)n_cell[i];
+	    offset[i]        = Geometry::ProbLo(i) + delta*lo[i];
+	}
+	CoordSys::SetOffset(offset);
     }
 
     {
@@ -379,7 +325,7 @@ AmrMesh::InitAmrMesh (int max_level_in, const Vector<int>& n_cell_in,
 }
 
 int
-AmrMesh::MaxRefRatio (int lev) const noexcept
+AmrMesh::MaxRefRatio (int lev) const
 {
     int maxval = 0;
     for (int n = 0; n<AMREX_SPACEDIM; n++)
@@ -388,37 +334,31 @@ AmrMesh::MaxRefRatio (int lev) const noexcept
 }
 
 void
-AmrMesh::SetDistributionMap (int lev, const DistributionMapping& dmap_in) noexcept
+AmrMesh::SetDistributionMap (int lev, const DistributionMapping& dmap_in)
 {
     if (dmap[lev] != dmap_in) dmap[lev] = dmap_in;
 }
 
 void
-AmrMesh::SetBoxArray (int lev, const BoxArray& ba_in) noexcept
+AmrMesh::SetBoxArray (int lev, const BoxArray& ba_in)
 {
     if (grids[lev] != ba_in) grids[lev] = ba_in;
 }
 
 void
-AmrMesh::SetGeometry (int lev, const Geometry& geom_in) noexcept
-{
-    geom[lev] = geom_in;
-}
-
-void
-AmrMesh::ClearDistributionMap (int lev) noexcept
+AmrMesh::ClearDistributionMap (int lev)
 {
     dmap[lev] = DistributionMapping();
 }
 
 void
-AmrMesh::ClearBoxArray (int lev) noexcept
+AmrMesh::ClearBoxArray (int lev)
 {
     grids[lev] = BoxArray();
 }
 
 bool
-AmrMesh::LevelDefined (int lev) noexcept
+AmrMesh::LevelDefined (int lev)
 {
     return lev <= max_level && !grids[lev].empty() && !dmap[lev].empty();
 }
@@ -445,24 +385,14 @@ AmrMesh::ChopGrids (int lev, BoxArray& ba, int target_size) const
 BoxArray
 AmrMesh::MakeBaseGrids () const
 {
-    IntVect fac(2);
-    const Box& dom = geom[0].Domain();
-    const Box dom2 = amrex::refine(amrex::coarsen(dom,2),2);
-    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-        if (dom.length(idim) != dom2.length(idim)) {
-            fac[idim] = 1;
-        }
-    }
-    BoxArray ba(amrex::coarsen(dom,fac));
-    ba.maxSize(max_grid_size[0]/fac);
-    ba.refine(fac);
-    // Boxes in ba have even number of cells in each direction
-    // unless the domain has odd number of cells in that direction.
+    BoxArray ba(amrex::coarsen(geom[0].Domain(),2));
+    ba.maxSize(max_grid_size[0]/2);
+    ba.refine(2);
     if (refine_grid_layout) {
-        ChopGrids(0, ba, ParallelDescriptor::NProcs());
+	ChopGrids(0, ba, ParallelDescriptor::NProcs());
     }
     if (ba == grids[0]) {
-        ba = grids[0];  // to avoid duplicates
+	ba = grids[0];  // to avoid duplicates
     }
     return ba;
 }
@@ -513,9 +443,8 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
     p_n_comp[lbase].complementIn(pc_domain[lbase],bl);
     p_n_comp[lbase].simplify();
     p_n_comp[lbase].accrete(n_proper);
-    if (geom[lbase].isAnyPeriodic()) {
-        ProjPeriodic(p_n_comp[lbase], pc_domain[lbase],
-                     geom[lbase].isPeriodic());
+    if (Geometry::isAnyPeriodic()) {
+	ProjPeriodic(p_n_comp[lbase], Geometry(pc_domain[lbase]));
     }
     p_n[lbase].complementIn(pc_domain[lbase],p_n_comp[lbase]);
     p_n[lbase].simplify();
@@ -531,8 +460,8 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
         p_n_comp[i].refine(rr_lev[i-1]);
         p_n_comp[i].accrete(n_proper);
 
-	if (geom[i].isAnyPeriodic()) {
-	    ProjPeriodic(p_n_comp[i], pc_domain[i], geom[i].isPeriodic());
+	if (Geometry::isAnyPeriodic()) {
+	    ProjPeriodic(p_n_comp[i], Geometry(pc_domain[i]));
 	}
 
         p_n[i].complementIn(pc_domain[i],p_n_comp[i]);
@@ -589,22 +518,21 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
         //          tags.setVal(ba_proj,TagBox::SET);
         // The problem with this code is that it effectively
         // "buffered the buffer cells",  i.e., the grids at level
-        // levf+1 which were created by buffering with n_error_buf[levf][idim]
+        // levf+1 which were created by buffering with n_error_buf[levf]
         // are then coarsened down twice to define tagging at
         // level levc, which will then also be buffered.  This can
         // create grids which are larger than necessary.
         //
         if (levf < new_finest)
         {
-            // Replace this by n_error_buf that may be anisotropic
-            // int nerr = n_error_buf[levf];
+            int nerr = n_error_buf[levf];
 
             BoxList bl_tagged(new_grids[levf+1]);
             bl_tagged.simplify();
             bl_tagged.coarsen(ref_ratio[levf]);
             //
-            // This grows the boxes by n_error_buf[levf][idir] if they touch the edge 
-            // of the domain in preparation for them being shrunk by n_error_buf[levf][idir] later.
+            // This grows the boxes by nerr if they touch the edge of the
+            // domain in preparation for them being shrunk by nerr later.
             // We want the net effect to be that grids are NOT shrunk away
             // from the edges of the domain.
             //
@@ -615,9 +543,9 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
                 for (int idir = 0; idir < AMREX_SPACEDIM; idir++)
                 {
                     if (blt->smallEnd(idir) == Geom(levf).Domain().smallEnd(idir))
-                        blt->growLo(idir,n_error_buf[levf][idir]);
+                        blt->growLo(idir,nerr);
                     if (blt->bigEnd(idir) == Geom(levf).Domain().bigEnd(idir))
-                        blt->growHi(idir,n_error_buf[levf][idir]);
+                        blt->growHi(idir,nerr);
                 }
             }
             Box mboxF = amrex::grow(bl_tagged.minimalBox(),1);
@@ -626,9 +554,9 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
             blFcomp.simplify();
             bl_tagged.clear();
 
-            const IntVect& iv = IntVect(AMREX_D_DECL(n_error_buf[levf][0]/ref_ratio[levf][0],
-                                                     n_error_buf[levf][1]/ref_ratio[levf][1],
-                                                     n_error_buf[levf][2]/ref_ratio[levf][2]));
+            const IntVect& iv = IntVect(AMREX_D_DECL(nerr/ref_ratio[levf][0],
+                                               nerr/ref_ratio[levf][1],
+                                               nerr/ref_ratio[levf][2]));
             blFcomp.accrete(iv);
             BoxList blF;
             blF.complementIn(mboxF,blFcomp);
@@ -642,8 +570,8 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
             //
             for (int idir = 0; idir < AMREX_SPACEDIM; idir++)
             {
-                if (              n_error_buf[levf][idir] >  n_error_buf[levc][idir]*ref_ratio[levc][idir])
-                    baF.grow(idir,n_error_buf[levf][idir]  - n_error_buf[levc][idir]*ref_ratio[levc][idir]);
+                if (nerr > n_error_buf[levc]*ref_ratio[levc][idir])
+                    baF.grow(idir,nerr-n_error_buf[levc]*ref_ratio[levc][idir]);
             }
 
             baF.coarsen(ref_ratio[levc]);
@@ -687,10 +615,7 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>& 
         //
         // Map tagged points through periodic boundaries, if any.
         //
-        tags.mapPeriodic(Geometry(pc_domain[levc],
-                                  Geom(levc).ProbDomain(),
-                                  Geom(levc).CoordInt(),
-                                  Geom(levc).isPeriodic()));
+        tags.mapPeriodic(Geometry(pc_domain[levc]));
         //
         // Remove cells outside proper nesting domain for this level.
         //
@@ -856,12 +781,12 @@ AmrMesh::MakeNewGrids (Real time)
 }
 
 void
-AmrMesh::ProjPeriodic (BoxList& blout, const Box& domain,
-                       Array<int,AMREX_SPACEDIM> const& is_per)
+AmrMesh::ProjPeriodic (BoxList& blout, const Geometry& geom)
 {
     //
     // Add periodic translates to blout.
     //
+    Box domain = geom.Domain();
 
     BoxList blorig(blout);
 
@@ -875,34 +800,34 @@ AmrMesh::ProjPeriodic (BoxList& blout, const Box& domain,
     int ri,rj,rk;
     for (ri = nist; ri <= niend; ri++)
     {
-        if (ri != 0 && !is_per[0])
+        if (ri != 0 && !geom.isPeriodic(0))
             continue;
-        if (ri != 0 && is_per[0])
+        if (ri != 0 && geom.isPeriodic(0))
             blorig.shift(0,ri*domain.length(0));
         for (rj = njst; rj <= njend; rj++)
         {
-            if (rj != 0 && !is_per[1])
+            if (rj != 0 && !geom.isPeriodic(1))
                 continue;
-            if (rj != 0 && is_per[1])
+            if (rj != 0 && geom.isPeriodic(1))
                 blorig.shift(1,rj*domain.length(1));
             for (rk = nkst; rk <= nkend; rk++)
             {
-                if (rk != 0 && !is_per[2])
+                if (rk != 0 && !geom.isPeriodic(2))
                     continue;
-                if (rk != 0 && is_per[2])
+                if (rk != 0 && geom.isPeriodic(2))
                     blorig.shift(2,rk*domain.length(2));
 
                 BoxList tmp(blorig);
                 tmp.intersect(domain);
                 blout.catenate(tmp);
 
-                if (rk != 0 && is_per[2])
+                if (rk != 0 && geom.isPeriodic(2))
                     blorig.shift(2,-rk*domain.length(2));
             }
-            if (rj != 0 && is_per[1])
+            if (rj != 0 && geom.isPeriodic(1))
                 blorig.shift(1,-rj*domain.length(1));
         }
-        if (ri != 0 && is_per[0])
+        if (ri != 0 && geom.isPeriodic(0))
             blorig.shift(0,-ri*domain.length(0));
     }
 }
@@ -961,7 +886,7 @@ AmrMesh::checkInput ()
         }
     }
 
-    if( ! (Geom(0).ProbDomain().volume() > 0.0) ) {
+    if( ! (Geometry::ProbDomain().volume() > 0.0) ) {
         amrex::Error("Amr::checkInput: bad physical problem size");
     }
 
@@ -971,7 +896,7 @@ AmrMesh::checkInput ()
 }
 
 long
-AmrMesh::CountCells (int lev) noexcept
+AmrMesh::CountCells (int lev)
 {
     return grids[lev].numPts();
 }

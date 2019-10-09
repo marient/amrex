@@ -9,9 +9,8 @@
 #include <cstdio>
 #include <cstdlib>
 
+#if defined(__linux__) && !defined(__NEC__)
 #include <execinfo.h>
-#if defined(__APPLE__)
-#include <xmmintrin.h>
 #endif
 
 #include <csignal>
@@ -21,7 +20,7 @@
 #include <omp.h>
 #endif
 
-#ifdef AMREX_BACKTRACING
+#ifdef BL_BACKTRACING
 #define BL_PASTE2(x, y) x##y
 #define BL_PASTE(x, y) BL_PASTE2(x, y)
 #define BL_BACKTRACE_PUSH( S )  amrex::BLBTer BL_PASTE( bl_bter, __COUNTER__ )( S, __FILE__, __LINE__ )
@@ -41,16 +40,16 @@ struct BLBackTrace
     //! Non-abort backtrace. Prints to specified file and continues.
     static void print_backtrace_info (const std::string& filename);
 
-#ifdef AMREX_BACKTRACING
+#ifdef BL_BACKTRACING
     static std::stack<std::pair<std::string, std::string> > bt_stack;
 // threadprivate here doesn't work with Cray and Intel
 #if defined(_OPENMP) && !defined(_CRAYC) && !defined(__INTEL_COMPILER)
 #pragma omp threadprivate(bt_stack)
 #endif
-#endif // AMREX_BACKTRACING
+#endif // BL_BACKTRACING
 };
 
-#ifdef AMREX_BACKTRACING
+#ifdef BL_BACKTRACING
 class BLBTer
 {
 public:
@@ -60,7 +59,7 @@ private:
     std::string line_file;
     void pop_bt_stack();
 };
-#endif // AMREX_BACKTRACING
+#endif // BL_BACKTRACING
 
 }
 

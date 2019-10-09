@@ -20,8 +20,8 @@ namespace Lazy
 
     void EvalReduction ()
     {
-#ifdef BL_USE_MPI
 	static int count = 0;
+#ifdef BL_USE_MPI
 	++count;
 	if (count == 1) {
 	    for (auto&& f : reduction_queue)

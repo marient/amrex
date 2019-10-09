@@ -239,7 +239,7 @@ BoxList::BoxList (const Box& bx, int nboxes, Direction dir)
 }
 
 bool
-BoxList::ok () const noexcept
+BoxList::ok () const
 {
     for (const auto& b : *this) {
         if (!b.ok()) return false;
@@ -359,7 +359,7 @@ BoxList::complementIn (const Box& b, const BoxArray& ba)
         Real s_avgbox = std::cbrt(npts_avgbox);
 #endif
 
-        const int block_size = 4 * std::max(1,static_cast<int>(std::ceil(s_avgbox/4.))*4);
+        const int block_size = 4 * (static_cast<int>(std::ceil(s_avgbox/4.))*4);
 	bl_mesh.maxSize(block_size);
 	const int N = bl_mesh.size();
 
@@ -722,7 +722,7 @@ BoxList::maxSize (int chunk)
 }
 
 BoxList&
-BoxList::surroundingNodes () noexcept
+BoxList::surroundingNodes ()
 {
     for (auto& bx : m_lbox)
     {
@@ -732,7 +732,7 @@ BoxList::surroundingNodes () noexcept
 }
 
 BoxList&
-BoxList::surroundingNodes (int dir) noexcept
+BoxList::surroundingNodes (int dir)
 {
     for (auto& bx : m_lbox)
     {
@@ -742,7 +742,7 @@ BoxList::surroundingNodes (int dir) noexcept
 }
 
 BoxList&
-BoxList::enclosedCells () noexcept
+BoxList::enclosedCells ()
 {
     for (auto& bx : m_lbox)
     {
@@ -752,7 +752,7 @@ BoxList::enclosedCells () noexcept
 }
 
 BoxList&
-BoxList::enclosedCells (int dir) noexcept
+BoxList::enclosedCells (int dir)
 {
     for (auto& bx : m_lbox)
     {
@@ -762,7 +762,7 @@ BoxList::enclosedCells (int dir) noexcept
 }
 
 BoxList&
-BoxList::convert (IndexType typ) noexcept
+BoxList::convert (IndexType typ)
 {
     btype = typ;
     for (auto& bx : m_lbox)

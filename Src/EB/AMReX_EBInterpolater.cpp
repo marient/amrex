@@ -3,6 +3,7 @@
 #include <AMReX_EBFArrayBox.H>
 #include <AMReX_EBCellFlag.H>
 #include <AMReX_Geometry.H>
+#include <AMReX_EBInterp_F.H>
 
 namespace amrex {
 
@@ -28,13 +29,12 @@ EBCellConservativeLinear::interp (const FArrayBox& crse,
                                   const IntVect&   ratio,
                                   const Geometry&  crse_geom,
                                   const Geometry&  fine_geom,
-                                  Vector<BCRec> const&  bcr,
+                                  Vector<BCRec>&    bcr,
                                   int              actual_comp,
-                                  int              actual_state,
-                                  RunOn            runon)
+                                  int              actual_state)
 {
     CellConservativeLinear::interp(crse, crse_comp, fine, fine_comp, ncomp, fine_region, ratio,
-                                   crse_geom, fine_geom, bcr, actual_comp, actual_state, runon);
+                                   crse_geom, fine_geom, bcr, actual_comp, actual_state);
 
     const Box& target_fine_region = fine_region & fine.box();
 
@@ -65,17 +65,17 @@ EBCellConservativeLinear::interp (const FArrayBox& crse,
         }
         else
         {
-            const auto& cflag = crse_flag.const_array();
-            auto const& fa = fine.array();
-            auto const& ca = crse.const_array();
-            bool run_on_gpu = (Gpu::inLaunchRegion() && runon == RunOn::Gpu);
-            AMREX_HOST_DEVICE_FOR_4D_FLAG(run_on_gpu, target_fine_region, ncomp, i, j, k, n,
-            {
-                Dim3 cxyz = amrex::coarsen(Dim3{i,j,k}, ratio);
-                if (cflag(cxyz.x,cxyz.y,cxyz.z).numNeighbors() < AMREX_D_TERM(3,*3,*3)) {
-                    fa(i,j,k,n+fine_comp) = ca(cxyz.x,cxyz.y,cxyz.z,n+crse_comp);
-                }
-            });
+
+            const int* ratioV = ratio.getVect();
+            const Box& cdomain = crse_geom.Domain();
+
+            amrex_ebinterp_pc_sv(BL_TO_FORTRAN_BOX(target_fine_region),
+                                 BL_TO_FORTRAN_BOX(crse_bx),
+                                 BL_TO_FORTRAN_N_ANYD(crse,crse_comp),
+                                 BL_TO_FORTRAN_N_ANYD(fine,fine_comp),
+                                 &ncomp, ratioV,
+                                 BL_TO_FORTRAN_BOX(cdomain),
+                                 BL_TO_FORTRAN_ANYD(crse_flag));
         }
     }        
 }

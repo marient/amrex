@@ -2,7 +2,7 @@
 
 namespace amrex
 {
-  void BoxIterator::define (const Box& a_bx) noexcept
+  void BoxIterator::define (const Box& a_bx)
   {
     if (a_bx.ok() && a_bx.smallEnd() <= a_bx.bigEnd())
       {
@@ -18,7 +18,7 @@ namespace amrex
       }
   }
 
-  void BoxIterator::setBox(const Box& a_bx) noexcept
+  void BoxIterator::setBox(const Box& a_bx)
   {
     define(a_bx);
   }

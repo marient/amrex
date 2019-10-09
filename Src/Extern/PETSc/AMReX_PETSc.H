@@ -1,6 +1,8 @@
 #ifndef AMREX_PETSC_H_
 #define AMREX_PETSC_H_
 
+#include <_hypre_utilities.h>
+
 #include <AMReX_Geometry.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_LayoutData.H>
@@ -57,9 +59,9 @@ private:
     Vec b = nullptr;
     Vec x = nullptr;
 
-    LayoutData<PetscInt> ncells_grid;
-    LayoutData<Vector<PetscInt> > cell_id_vec;
-    FabArray<BaseFab<PetscInt> > cell_id;
+    LayoutData<HYPRE_Int> ncells_grid;
+    LayoutData<Vector<HYPRE_Int> > cell_id_vec;
+    FabArray<BaseFab<HYPRE_Int> > cell_id;
 
     MultiFab const* m_eb_b_coeffs = nullptr;
 

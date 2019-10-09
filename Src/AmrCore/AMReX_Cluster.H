@@ -29,7 +29,7 @@ public:
     /**
     * \brief The default constructor -- builds invalid Cluster.
     */
-    Cluster () noexcept;
+    Cluster ();
 
     /**
     * \brief Construct a cluster from an array of IntVects.
@@ -40,7 +40,7 @@ public:
     * \param len
     */
     Cluster (IntVect* a,
-             long     len) noexcept;
+             long     len);
 
     /**
     * \brief Construct new cluster by removing all points from c that lie
@@ -60,24 +60,24 @@ public:
     /**
     * \brief Return minimal box containing all tagged points.
     */
-    const Box& box () const noexcept { return m_bx; }
+    const Box& box () const { return m_bx; }
 
     /**
     * \brief Does cluster contain any points?
     */
-    bool ok () const noexcept { return m_ar != 0 && m_len > 0; }
+    bool ok () const { return m_ar != 0 && m_len > 0; }
 
     /**
     * \brief Returns number of tagged points in cluster.
     */
-    long numTag () const noexcept { return m_len; }
+    long numTag () const { return m_len; }
 
     /**
     * \brief Return number of tagged points in intersection of cluster and Box b.
     *
     * \param b
     */
-    long numTag (const Box& b) const noexcept;
+    long numTag (const Box& b) const;
 
     /**
     * \brief This operation splits a cluster into two pieces by selecting
@@ -116,7 +116,7 @@ public:
     /**
     * \brief Compute ratio of tagged to total number of points in cluster.
     */
-    Real eff () const noexcept { BL_ASSERT(ok()); return numTag()/m_bx.d_numPts(); }
+    Real eff () const { BL_ASSERT(ok()); return numTag()/m_bx.d_numPts(); }
 
 private:
 
@@ -130,12 +130,12 @@ private:
     /**
     * \brief Compute and store minimal box containing tagged points.
     */
-    void minBox () noexcept;
+    void minBox ();
 
     //! The data.
     Box      m_bx;
-    IntVect* m_ar = nullptr;
-    long     m_len = 0;
+    IntVect* m_ar;
+    long     m_len;
 };
 
 

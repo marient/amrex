@@ -8,7 +8,7 @@ namespace amrex {
 
 RealBox::RealBox (const Box&  bx,
                   const Real* dx,
-                  const Real* base) noexcept
+                  const Real* base)
 {
     const int* blo = bx.loVect();
     const int* bhi = bx.hiVect();
@@ -21,7 +21,7 @@ RealBox::RealBox (const Box&  bx,
 }
 
 RealBox::RealBox (const std::array<Real,AMREX_SPACEDIM>& a_lo,
-                  const std::array<Real,AMREX_SPACEDIM>& a_hi) noexcept
+                  const std::array<Real,AMREX_SPACEDIM>& a_hi)
 {
     AMREX_D_EXPR(xlo[0] = a_lo[0] , xlo[1] = a_lo[1] , xlo[2] = a_lo[2]);
     AMREX_D_EXPR(xhi[0] = a_hi[0] , xhi[1] = a_hi[1] , xhi[2] = a_hi[2]);
@@ -76,19 +76,6 @@ operator >> (std::istream &is, RealBox& b)
     b = RealBox(lo,hi);
 
     return is;
-}
-
-bool AlmostEqual (const RealBox& box1,
-                  const RealBox& box2,
-                  Real eps /* = 0.0 */) noexcept
-{
-    bool almostEqual = true;
-    for(int i = 0; i < AMREX_SPACEDIM && almostEqual; ++i)
-    {
-        almostEqual = almostEqual && std::abs(box1.lo(i) - box2.lo(i)) <= eps;
-        almostEqual = almostEqual && std::abs(box1.hi(i) - box2.hi(i)) <= eps;
-    }
-    return almostEqual;
 }
 
 }

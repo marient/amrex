@@ -36,11 +36,15 @@
 #include <AMReX_PlotFileUtil.H>
 #include <AMReX_Print.H>
 
+#ifdef AMREX_USE_FBOXLIB_MG
+#include <mg_cpp_f.h>
+#endif
+
 #ifdef BL_LAZY
 #include <AMReX_Lazy.H>
 #endif
 
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
 #include <AMReX_MemProfiler.H>
 #endif
 
@@ -51,10 +55,8 @@
 #ifdef USE_PERILLA
 #include <WorkerThread.H>
 #include <Perilla.H>
-#ifdef USE_PERILLA
-//#ifndef USE_PERILLA_ON_DEMAND
+#ifdef USE_PERILLA_PTHREADS
     pthread_mutex_t teamFinishLock=PTHREAD_MUTEX_INITIALIZER;
-//#endif
 #ifdef PERILLA_USE_UPCXX
 extern struct rMsgMap_t{
     std::map< int, std::map< int,  std::list< Package* > > > map;
@@ -126,7 +128,7 @@ namespace
 
 
 bool
-Amr::UsingPrecreateDirectories () noexcept
+Amr::UsingPrecreateDirectories()
 {
     return precreateDirectories;
 }
@@ -186,38 +188,38 @@ Amr::DataLog (int i)
 }
 
 int
-Amr::NumDataLogs () noexcept
+Amr::NumDataLogs ()
 {
     return datalog.size();
 }
 
 bool
-Amr::RegridOnRestart () const noexcept
+Amr::RegridOnRestart () const
 {
     return regrid_on_restart;
 }
 
 void
-Amr::setDtMin (const Vector<Real>& dt_min_in) noexcept
+Amr::setDtMin (const Vector<Real>& dt_min_in)
 {
     for (int i = 0; i <= finest_level; i++)
         dt_min[i] = dt_min_in[i];
 }
 
 Vector<std::unique_ptr<AmrLevel> >&
-Amr::getAmrLevels () noexcept
+Amr::getAmrLevels ()
 {
     return amr_level;
 }
 
 long
-Amr::cellCount (int lev) noexcept
+Amr::cellCount (int lev)
 {
     return amr_level[lev]->countCells();
 }
 
 int
-Amr::numGrids (int lev) noexcept
+Amr::numGrids (int lev)
 {
     return amr_level[lev]->numGrids();
 }
@@ -653,7 +655,7 @@ Amr::deleteStatePlotVar (const std::string& name)
 }
 
 bool
-Amr::isDerivePlotVar (const std::string& name) noexcept
+Amr::isDerivePlotVar (const std::string& name)
 {
     for (std::list<std::string>::const_iterator li = derive_plot_vars.begin(), End = derive_plot_vars.end();
          li != End;
@@ -668,7 +670,7 @@ Amr::isDerivePlotVar (const std::string& name) noexcept
 }
 
 bool
-Amr::isDeriveSmallPlotVar (const std::string& name) noexcept
+Amr::isDeriveSmallPlotVar (const std::string& name)
 {
     for (std::list<std::string>::const_iterator li = derive_small_plot_vars.begin(), End = derive_small_plot_vars.end();
          li != End;
@@ -816,27 +818,27 @@ Amr::setRecordDataInfo (int i, const std::string& filename)
 }
 
 void
-Amr::setDtLevel (const Vector<Real>& dt_lev) noexcept
+Amr::setDtLevel (const Vector<Real>& dt_lev)
 {
     for (int i = 0; i <= finest_level; i++)
         dt_level[i] = dt_lev[i];
 }
 
 void
-Amr::setDtLevel (Real dt, int lev) noexcept
+Amr::setDtLevel (Real dt, int lev)
 {
     dt_level[lev] = dt;
 }
 
 void
-Amr::setNCycle (const Vector<int>& ns) noexcept
+Amr::setNCycle (const Vector<int>& ns)
 {
     for (int i = 0; i <= finest_level; i++)
         n_cycle[i] = ns[i];
 }
 
 long
-Amr::cellCount () noexcept
+Amr::cellCount ()
 {
     long cnt = 0;
     for (int i = 0; i <= finest_level; i++)
@@ -845,7 +847,7 @@ Amr::cellCount () noexcept
 }
 
 int
-Amr::numGrids () noexcept
+Amr::numGrids ()
 {
     int cnt = 0;
     for (int i = 0; i <= finest_level; i++)
@@ -854,7 +856,7 @@ Amr::numGrids () noexcept
 }
 
 int
-Amr::okToContinue () noexcept
+Amr::okToContinue ()
 {
     int ok = true;
     for (int i = 0; ok && (i <= finest_level); i++)
@@ -1130,7 +1132,7 @@ Amr::checkInput ()
     //
     // Check that blocking_factor is a power of 2.
     //
-    for (int i = 0; i <= max_level; i++)
+    for (int i = 0; i < max_level; i++)
     {
         for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
         {
@@ -1164,7 +1166,7 @@ Amr::checkInput ()
     //
     // Check that max_grid_size is even.
     //
-    for (int i = 0; i <= max_level; i++)
+    for (int i = 0; i < max_level; i++)
     {
         for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
             if (max_grid_size[i][idim]%2 != 0) {
@@ -1176,7 +1178,7 @@ Amr::checkInput ()
     //
     // Check that max_grid_size is a multiple of blocking_factor at every level.
     //
-    for (int i = 0; i <= max_level; i++)
+    for (int i = 0; i < max_level; i++)
     {
         for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
             if (max_grid_size[i][idim]%blocking_factor[i][idim] != 0) {
@@ -1185,7 +1187,7 @@ Amr::checkInput ()
         }
     }
 
-    if( ! Geom(0).ProbDomain().ok()) {
+    if( ! Geometry::ProbDomain().ok()) {
         amrex::Error("Amr::checkInput: bad physical problem size");
     }
 
@@ -1207,15 +1209,13 @@ Amr::init (Real strt_time,
     else
     {
         initialInit(strt_time,stop_time);
-        if (check_int > 0 || check_per > 0) {
-            checkPoint();
-        }
+        checkPoint();
 
-        if(plot_int > 0 || plot_per > 0 || plot_log_per > 0) {
+        if(plot_int > 0 || plot_per > 0) {
             writePlotFile();
         }
 
-        if (small_plot_int > 0 || small_plot_per > 0 || small_plot_log_per > 0)
+        if (small_plot_int > 0 || small_plot_per > 0)
 	        writeSmallPlotFile();
 
         updateInSitu();
@@ -1270,16 +1270,16 @@ Amr::readProbinFile (int& a_init)
             amrex_probinit(&a_init,
 			   probin_file_name.dataPtr(),
 			   &probin_file_length,
-			   AMREX_ZFILL(Geom(0).ProbLo()),
-			   AMREX_ZFILL(Geom(0).ProbHi()));
+			   AMREX_ZFILL(Geometry::ProbLo()),
+			   AMREX_ZFILL(Geometry::ProbHi()));
 
 #else
 
             amrex_probinit(&a_init,
 			   probin_file_name.dataPtr(),
 			   &probin_file_length,
-			   Geom(0).ProbLo(),
-			   Geom(0).ProbHi());
+			   Geometry::ProbLo(),
+			   Geometry::ProbHi());
 #endif
 
             piEnd = amrex::second();
@@ -1547,8 +1547,8 @@ Amr::restart (const std::string& filename)
     Vector<Box> inputs_domain(max_level+1);
     for (int lev = 0; lev <= max_level; ++lev)
     {
-        Box bx(Geom(lev).Domain().smallEnd(),Geom(lev).Domain().bigEnd());
-        inputs_domain[lev] = bx;
+	Box bx(Geom(lev).Domain().smallEnd(),Geom(lev).Domain().bigEnd());
+       inputs_domain[lev] = bx;
     }
 
     if (max_level >= mx_lev) {
@@ -1714,13 +1714,6 @@ Amr::restart (const std::string& filename)
        }
     }
 
-    // Old checkpoints do not store isPeriodic.
-    // So we have to set it after restart.
-    for (int lev = 0; lev <= finest_level; ++lev)
-    {
-        amr_level[lev]->geom.setPeriodicity(Geom(lev).isPeriodic());
-    }
-
     // Save the number of steps taken so far. This mainly
     // helps in the edge case where we end up not taking
     // any timesteps before the run terminates, so that
@@ -1730,17 +1723,17 @@ Amr::restart (const std::string& filename)
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
-        Box restart_domain(Geom(lev).Domain());
-        if ( ! (inputs_domain[lev] == restart_domain) )
-        {
-            std::ostringstream ss;
-            ss  << "Problem at level " << lev << '\n'
-                << "Domain according to     inputs file is " <<  inputs_domain[lev] << '\n'
-                << "Domain according to checkpoint file is " << restart_domain      << '\n'
-                << "Amr::restart() failed -- box from inputs file does not "
-                << "equal box from restart file. \n";
-            amrex::Abort(ss.str());
-        }
+	Box restart_domain(Geom(lev).Domain());
+       if ( ! (inputs_domain[lev] == restart_domain) )
+       {
+           std::ostringstream ss;
+           ss  << "Problem at level " << lev << '\n'
+	       << "Domain according to     inputs file is " <<  inputs_domain[lev] << '\n'
+	       << "Domain according to checkpoint file is " << restart_domain      << '\n'
+	       << "Amr::restart() failed -- box from inputs file does not "
+	       << "equal box from restart file. \n";
+           amrex::Abort(ss.str());
+       }
     }
 
     if (verbose > 0)
@@ -1934,7 +1927,7 @@ Amr::checkPoint ()
 }
 
 void
-Amr::RegridOnly (Real time, bool do_io)
+Amr::RegridOnly (Real time)
 {
     BL_ASSERT(regrid_on_restart == 1);
 
@@ -1943,18 +1936,14 @@ Amr::RegridOnly (Real time, bool do_io)
     for (int i = 0; i <= lev_top; i++)
        regrid(i,time);
 
-    if (do_io) {
+    if (plotfile_on_restart)
+	writePlotFile();
 
-        if (plotfile_on_restart)
-            writePlotFile();
+    if (checkpoint_on_restart)
+       checkPoint();
 
-        if (checkpoint_on_restart)
-            checkPoint();
-
-        if (insitu_on_restart)
-            updateInSitu();
-
-    }
+    if (insitu_on_restart)
+        updateInSitu();
 }
 
 void
@@ -1964,7 +1953,7 @@ Amr::timeStep (int  level,
                int  niter,
                Real stop_time)
 {
-#if defined(USE_PERILLA_PTHREADS) || defined(USE_PERILLA_OMP)
+#ifdef USE_PERILLA
     perilla::syncAllWorkerThreads();
     if(perilla::isMasterThread())
     {
@@ -2005,13 +1994,11 @@ Amr::timeStep (int  level,
             if (okToRegrid(i))
             {
 #ifdef USE_PERILLA
-#if defined(USE_PERILLA_PTHREADS) || defined(USE_PERILLA_OMP)
 		//ask the communication thread to stop so that I can update the metadata
                 Perilla::updateMetadata_request=1;
 		while(!Perilla::updateMetadata_noticed){
 
 		}
-#endif
                 //for (int k(i>0?i-1:0); k <= finest_level; ++k) {
                 for (int k=0; k <= finest_level; ++k) {
                     if(metadataChanged[k]==false){
@@ -2074,7 +2061,7 @@ Amr::timeStep (int  level,
 	    }
  	    Perilla::updateMetadata_done++;
 	}
-        delete [] metadataChanged;
+        delete metadataChanged;
 #endif
 
         if (max_level == 0 && loadbalance_level0_int > 0 && loadbalance_with_workestimates)
@@ -2103,7 +2090,7 @@ Amr::timeStep (int  level,
 		       << "ADVANCE with dt = " << dt_level[level] << "\n";
     }
 
-#if defined(USE_PERILLA_PTHREADS) || defined(USE_PERILLA_OMP)
+#ifdef USE_PERILLA
     }
     perilla::syncAllWorkerThreads();
 #endif
@@ -2112,8 +2099,8 @@ Amr::timeStep (int  level,
     Real dt_new = amr_level[level]->advance(time,dt_level[level],iteration,niter);
     BL_PROFILE_REGION_STOP("amr_level.advance");
 
-#if defined(USE_PERILLA_PTHREADS) || defined(USE_PERILLA_OMP)
-    perilla::syncAllWorkerThreads();
+#ifdef USE_PERILLA
+    perilla::syncWorkerThreads();
     if(perilla::isMasterThread())
     {
 #endif
@@ -2153,7 +2140,7 @@ Amr::timeStep (int  level,
 #endif
     }
 
-#if defined(USE_PERILLA_PTHREADS) || defined(USE_PERILLA_OMP)
+#ifdef USE_PERILLA
     }
     perilla::syncAllWorkerThreads();
 #endif
@@ -2180,20 +2167,20 @@ Amr::timeStep (int  level,
         }
     }
 
-#if defined(USE_PERILLA_PTHREADS) || defined(USE_PERILLA_OMP)
+#ifdef USE_PERILLA
     perilla::syncAllWorkerThreads();
 #endif
 
     amr_level[level]->post_timestep(iteration);
 
-#if defined(USE_PERILLA_PTHREADS) || defined(USE_PERILLA_OMP)
+#ifdef USE_PERILLA
     perilla::syncAllWorkerThreads();
     if(perilla::isMasterThread())
     {
 #endif
     // Set this back to negative so we know whether we are in fact in this routine
     which_level_being_advanced = -1;
-#if defined(USE_PERILLA_PTHREADS) || defined(USE_PERILLA_OMP)
+#ifdef USE_PERILLA
     }
     perilla::syncAllWorkerThreads();
 #endif
@@ -2212,8 +2199,6 @@ Amr::coarseTimeStep (Real stop_time)
     Real      run_stop;
     Real run_strt;
 #ifdef USE_PERILLA_PTHREADS
-    //mpi+pthreads (default) or upcxx+pthreads
-    std::vector<RegionGraph*> flattenedGraphArray;
     perilla::syncAllThreads();
     if(perilla::isMasterThread())
     {
@@ -2252,17 +2237,18 @@ Amr::coarseTimeStep (Real stop_time)
 
     BL_PROFILE_REGION_START(stepName.str());
 
-#ifdef USE_PERILLA
 #ifdef USE_PERILLA_PTHREADS
-    //mpi+pthreads (default) or upcxx+pthreads
     }
     perilla::syncAllThreads();
+#endif
 
+#ifdef USE_PERILLA
+#ifdef USE_PERILLA_PTHREADS
     if(perilla::isMasterThread()){
+        Perilla::numTeamsFinished = 0;
         Perilla::updateMetadata_request = 0;
         Perilla::updateMetadata_noticed = 0;
         Perilla::updateMetadata_done = 0;
-        Perilla::numTeamsFinished = 0;
         RegionGraph::graphCnt = 0;
         if(levelSteps(0)==0){
 	    graphArray.resize(finest_level+1);
@@ -2276,10 +2262,11 @@ Amr::coarseTimeStep (Real stop_time)
         }
     }
     perilla::syncAllThreads();
+    std::vector<RegionGraph*> flattenedGraphArray;
+    Perilla::flattenGraphHierarchy(graphArray, flattenedGraphArray);
 
     if(perilla::isCommunicationThread())
     {
-        Perilla::flattenGraphHierarchy(graphArray, flattenedGraphArray);
 	bool doublechecked=false;
         while(true){
    	    if(!Perilla::updateMetadata_request){
@@ -2346,7 +2333,33 @@ Amr::coarseTimeStep (Real stop_time)
             pthread_mutex_unlock(&teamFinishLock);
         }
     }
+#else
+    Perilla::numTeamsFinished = 0;
+    RegionGraph::graphCnt = 0;
+    if(levelSteps(0)==0){
+	graphArray.resize(finest_level+1);
+        for(int i=0; i<= finest_level; i++)
+            getLevel(i).initPerilla(cumtime);
+        Perilla::communicateTags();
+    }
 
+#pragma omp parallel
+    {
+        if(perilla::isCommunicationThread())
+        {
+            Perilla::serviceMultipleGraphCommDynamic(graphArray,true,perilla::tid());
+        }
+        else{
+            timeStep(0,cumtime,1,1,stop_time);
+            if(perilla::isMasterWorkerThread()){
+#pragma omp atomic
+                Perilla::numTeamsFinished++;
+            }
+        }
+    }
+#endif
+
+#ifdef USE_PERILLA
     perilla::syncAllThreads();
     if(perilla::isMasterThread()){
         if(!okToContinue() || (level_steps[0] == Perilla::max_step) || (stop_time -(dt_level[0] + cumTime())<=0)){
@@ -2355,74 +2368,8 @@ Amr::coarseTimeStep (Real stop_time)
             }
         }
     }
-#else
-    Perilla::numTeamsFinished = 0;
-    RegionGraph::graphCnt = 0;
-    if(levelSteps(0)==0){
-	graphArray.resize(finest_level+1);
-        for(int i=0; i<= finest_level; i++)
-            getLevel(i).initPerilla(cumtime);
-        if(ParallelDescriptor::NProcs()>1){
-            Perilla::communicateTags();
-        }
-    }
-    Perilla::syncProcesses();
-
-#ifdef USE_PERILLA_OMP
-//    int nThreads= perilla::NUM_THREAD_TEAMS * perilla::NUM_THREADS_PER_TEAM; 
-// num_threads(nThreads)
-#pragma omp parallel default(shared)
-    {
-        if(perilla::isCommunicationThread())
-        {
-   	    std::vector<RegionGraph*> flattenedGraphArray;
-            while(true){
-                Perilla::flattenGraphHierarchy(graphArray, flattenedGraphArray);
-                Perilla::serviceMultipleGraphCommDynamic(flattenedGraphArray,true,perilla::tid());
-                if( Perilla::numTeamsFinished == perilla::NUM_THREAD_TEAMS)
-                {
-	            //perilla::syncWorkers();
-	            //if(perilla::wid()==0){
-                        //Perilla::syncProcesses();
-                        /*for(int g=0; g<flattenedGraphArray.size(); g++)
-                        {
-                            //cancel messages preposted previously
-                            flattenedGraphArray[g]->graphTeardown();
-                        }*/
-            	    //}
-                    flattenedGraphArray.clear();
-	            //perilla::syncWorkers();
-                    if(perilla::wid()==0) Perilla::syncProcesses();
-                    break;
-                }
-	    }
-        }
-        else{
-            timeStep(0,cumtime,1,1,stop_time);
-            if(perilla::isMasterWorkerThread()){
-		#pragma omp atomic
-                Perilla::numTeamsFinished++;
-            }
-        }
-    }
-#elif defined(USE_PERILLA_ON_DEMAND)
-    //RTS on-demand
-    timeStep(0,cumtime,1,1,stop_time);
-#else
-    cout<<"Undefined Async Mode"<<endl;
-    exit(0);
 #endif
 
-#if 0
-    if(!okToContinue() || (level_steps[0] == Perilla::max_step) || (stop_time -(dt_level[0] + cumTime())<=0)){
-        for(int i=0; i<= finest_level; i++){
-            getLevel(i).finalizePerilla(cumtime);
-        }
-    }
-#endif
-//end nonPthreads backends
-#endif
-//end Perilla backends
 #else
     //synchronous
     timeStep(0,cumtime,1,1,stop_time);
@@ -2456,7 +2403,7 @@ Amr::coarseTimeStep (Real stop_time)
 	});
 #endif
 
-#ifndef AMREX_MEM_PROFILING
+#ifndef BL_MEM_PROFILING
         long min_fab_kilobytes  = amrex::TotalBytesAllocatedInFabsHWM()/1024;
         long max_fab_kilobytes  = min_fab_kilobytes;
 
@@ -2475,7 +2422,7 @@ Amr::coarseTimeStep (Real stop_time)
 #endif
     }
 
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
     {
 	std::ostringstream ss;
 	ss << "[STEP " << level_steps[0] << "]";
@@ -2655,7 +2602,7 @@ Amr::coarseTimeStep (Real stop_time)
 }
 
 bool
-Amr::writePlotNow() noexcept
+Amr::writePlotNow()
 {
     int plot_test = 0;
     if (plot_per > 0.0)
@@ -2697,38 +2644,13 @@ Amr::writePlotNow() noexcept
 
     }
 
-    if (plot_log_per > 0.0)
-    {
-
-        // Check to see if we've crossed a plot_log_per interval by comparing
-        // the number of intervals that have elapsed for both the current
-        // time and the time at the beginning of this timestep.
-        // This only works when cumtime > 0.
-
-        int num_per_old = 0;
-        int num_per_new = 0;
-
-        if (cumtime-dt_level[0] > 0.) {
-            num_per_old = log10(cumtime-dt_level[0]) / plot_log_per;
-        }
-        if (cumtime > 0.) {
-            num_per_new = log10(cumtime) / plot_log_per;
-        }
-
-        if (num_per_old != num_per_new)
-        {
-            plot_test = 1;
-        }
-
-    }
-
     return ( (plot_int > 0 && level_steps[0] % plot_int == 0) || 
               plot_test == 1 ||
               amr_level[0]->writePlotNow());
 } 
 
 bool
-Amr::writeSmallPlotNow() noexcept
+Amr::writeSmallPlotNow()
 {
     int plot_test = 0;
     if (small_plot_per > 0.0)
@@ -2767,31 +2689,6 @@ Amr::writeSmallPlotNow() noexcept
 	{
             plot_test = 1;
 	}
-
-    }
-
-    if (small_plot_log_per > 0.0)
-    {
-
-        // Check to see if we've crossed a small_plot_log_per interval by comparing
-        // the number of intervals that have elapsed for both the current
-        // time and the time at the beginning of this timestep.
-        // This only works when cumtime > 0.
-
-        int num_per_old = 0;
-        int num_per_new = 0;
-
-        if (cumtime-dt_level[0] > 0.) {
-            num_per_old = log10(cumtime-dt_level[0]) / small_plot_log_per;
-        }
-        if (cumtime > 0.) {
-            num_per_new = log10(cumtime) / small_plot_log_per;
-        }
-
-        if (num_per_old != num_per_new)
-        {
-            plot_test = 1;
-        }
 
     }
 
@@ -2919,6 +2816,12 @@ Amr::regrid (int  lbase,
     }
 
     finest_level = new_finest;
+    //
+    // Flush the caches.
+    //
+#ifdef AMREX_USE_FBOXLIB_MG
+    mgt_flush_copyassoc_cache();
+#endif
 
     //
     // Define the new grids from level start up to new_finest.
@@ -3165,7 +3068,7 @@ Amr::printGridInfo (std::ostream& os,
         int                       numgrid = bs.size();
         long                      ncells  = amr_level[lev]->countCells();
         double                    ntot    = Geom(lev).Domain().d_numPts();
-        Real                      frac    = 100.0_rt*(Real(ncells) / ntot);
+        Real                      frac    = 100.0*(Real(ncells) / ntot);
         const DistributionMapping& map    = amr_level[lev]->get_new_data(0).DistributionMap();
 
         os << "  Level "
@@ -3296,7 +3199,7 @@ Amr::grid_places (int              lbase,
 void
 Amr::ErrorEst (int lev, TagBoxArray& tags, Real time, int ngrow)
 {
-    amr_level[lev]->errorEst(tags,TagBox::CLEAR,TagBox::SET,time, n_error_buf[lev][0], ngrow);
+    amr_level[lev]->errorEst(tags,TagBox::CLEAR,TagBox::SET,time, n_error_buf[lev],ngrow);
 }
 
 BoxArray
@@ -3524,9 +3427,6 @@ Amr::initPltAndChk ()
     plot_per = -1.0;
     pp.query("plot_per",plot_per);
 
-    plot_log_per = -1.0;
-    pp.query("plot_log_per",plot_log_per);
-
     if (plot_int > 0 && plot_per > 0)
     {
         if (ParallelDescriptor::IOProcessor())
@@ -3541,9 +3441,6 @@ Amr::initPltAndChk ()
 
     small_plot_per = -1.0;
     pp.query("small_plot_per",small_plot_per);
-
-    small_plot_log_per = -1.0;
-    pp.query("small_plot_log_per",small_plot_log_per);
 
     if (small_plot_int > 0 && small_plot_per > 0)
     {
@@ -3577,7 +3474,7 @@ Amr::initPltAndChk ()
 
 
 bool
-Amr::okToRegrid(int level) noexcept
+Amr::okToRegrid(int level)
 {
     if (regrid_int[level] < 0)
         return false;
@@ -3632,7 +3529,7 @@ Amr::computeOptimalSubcycling(int n, int* best, Real* dt_max, Real* est_work, in
     return best_dt;
 }
 
-const Vector<BoxArray>& Amr::getInitialBA() noexcept
+const Vector<BoxArray>& Amr::getInitialBA()
 {
   return initial_ba;
 }

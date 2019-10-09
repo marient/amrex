@@ -91,7 +91,6 @@ public:
 #endif
 
     virtual bool isCrossStencil () const { return true; }
-    virtual bool isTensorOp () const { return false; }
 
     void updateSolBC (int amrlev, const MultiFab& crse_bcdata) const;
     void updateCorBC (int amrlev, const MultiFab& crse_bcdata) const;
@@ -114,7 +113,7 @@ public:
                          bool skip_fillboundary=false) const final override;
 
     virtual void solutionResidual (int amrlev, MultiFab& resid, MultiFab& x, const MultiFab& b,
-                                   const MultiFab* crse_bcdata=nullptr) override;
+                                   const MultiFab* crse_bcdata=nullptr) final override;
 
     virtual void correctionResidual (int amrlev, int mglev, MultiFab& resid, MultiFab& x, const MultiFab& b,
                                      BCMode bc_mode, const MultiFab* crse_bcdata=nullptr) final override;
@@ -124,7 +123,7 @@ public:
                          MultiFab& res, const MultiFab& crse_sol, const MultiFab&,
                          MultiFab&, MultiFab& fine_sol, const MultiFab&) const final override;
     virtual void compFlux (int amrlev, const Array<MultiFab*,AMREX_SPACEDIM>& fluxes,
-                           MultiFab& sol, Location loc) const override;
+                           MultiFab& sol, Location loc) const final override;
     virtual void compGrad (int amrlev, const Array<MultiFab*,AMREX_SPACEDIM>& grad,
                            MultiFab& sol, Location loc) const override;
 
@@ -144,7 +143,29 @@ public:
 
 protected:
 
-    bool m_has_metric_term = false;
+#if (AMREX_SPACEDIM != 3)
+    struct MetricFactor {
+        MetricFactor (const BoxArray& ba, const DistributionMapping& dm,
+                      const Geometry& geom, bool null_metric);
+        const Vector<Real>& cellCenters (const MFIter& mfi) const {
+            return r_cellcenter[mfi];
+        }
+        const Vector<Real>& cellEdges (const MFIter& mfi) const {
+            return r_celledge[mfi];
+        }
+        const Vector<Real>& invCellCenters (const MFIter& mfi) const {
+            return inv_r_cellcenter[mfi];
+        }
+        const Vector<Real>& invCellEdges (const MFIter& mfi) const {
+            return inv_r_celledge[mfi];
+        }
+        LayoutData<Vector<Real> > r_cellcenter;
+        LayoutData<Vector<Real> > r_celledge;
+        LayoutData<Vector<Real> > inv_r_cellcenter;
+        LayoutData<Vector<Real> > inv_r_celledge;
+    };
+    Vector<Vector<std::unique_ptr<MetricFactor> > > m_metric_factor;
+#endif
 
     Vector<std::unique_ptr<MLMGBndry> >   m_bndry_sol;
     Vector<std::unique_ptr<BndryRegister> > m_crse_sol_br;
@@ -160,31 +181,20 @@ protected:
     class BndryCondLoc
     {
     public:
-        BndryCondLoc (const BoxArray& ba, const DistributionMapping& dm, int ncomp);
-
+        BndryCondLoc (const BoxArray& ba, const DistributionMapping& dm);
         void setLOBndryConds (const Geometry& geom, const Real* dx,
-                              const Vector<Array<BCType,AMREX_SPACEDIM> >& lobc,
-                              const Vector<Array<BCType,AMREX_SPACEDIM> >& hibc,
-                              int ratio, const RealVect& interior_bloc,
-                              const Array<Real,AMREX_SPACEDIM>& domain_bloc_lo,
-                              const Array<Real,AMREX_SPACEDIM>& domain_bloc_hi);
-
-        const Vector<BCTuple>& bndryConds (const MFIter& mfi) const noexcept {
+                              const Array<BCType,AMREX_SPACEDIM>& lobc,
+                              const Array<BCType,AMREX_SPACEDIM>& hibc,
+                              int ratio, const RealVect& a_loc);
+        const BCTuple& bndryConds (const MFIter& mfi) const {
             return bcond[mfi];
         }
-        const Vector<RealTuple>& bndryLocs (const MFIter& mfi) const noexcept {
+        const RealTuple& bndryLocs (const MFIter& mfi) const {
             return bcloc[mfi];
         }
-        const BCTuple& bndryConds (const MFIter& mfi, int icomp) const noexcept {
-            return bcond[mfi][icomp];
-        }
-        const RealTuple& bndryLocs (const MFIter& mfi, int icomp) const noexcept {
-            return bcloc[mfi][icomp];
-        }
     private:
-        LayoutData<Vector<BCTuple> >   bcond;
-        LayoutData<Vector<RealTuple> > bcloc;
-        int m_ncomp;
+        LayoutData<BCTuple>   bcond;
+        LayoutData<RealTuple> bcloc;
     };
     Vector<Vector<std::unique_ptr<BndryCondLoc> > > m_bcondloc;
 

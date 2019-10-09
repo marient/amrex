@@ -6,16 +6,16 @@ namespace amrex {
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void mlpoisson_adotx (int i, int j, int k, Array4<Real> const& y,
                       Array4<Real const> const& x,
-                      Real dhx, Real dhy, Real dhz) noexcept
+                      Real dhx, Real dhy, Real dhz)
 {
     y(i,j,k) = dhx * (x(i-1,j,k) - 2.0*x(i,j,k) + x(i+1,j,k))
         +      dhy * (x(i,j-1,k) - 2.0*x(i,j,k) + x(i,j+1,k))
         +      dhz * (x(i,j,k-1) - 2.0*x(i,j,k) + x(i,j,k+1));
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void mlpoisson_flux_x (Box const& box, Array4<Real> const& fx,
-                       Array4<Real const> const& sol, Real dxinv) noexcept
+                       Array4<Real const> const& sol, Real dxinv)
 {
     const auto lo = amrex::lbound(box);
     const auto hi = amrex::ubound(box);
@@ -30,9 +30,9 @@ void mlpoisson_flux_x (Box const& box, Array4<Real> const& fx,
     }
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void mlpoisson_flux_xface (Box const& box, Array4<Real> const& fx,
-                           Array4<Real const> const& sol, Real dxinv, int xlen) noexcept
+                           Array4<Real const> const& sol, Real dxinv, int xlen)
 {
     const auto lo = amrex::lbound(box);
     const auto hi = amrex::ubound(box);
@@ -47,9 +47,9 @@ void mlpoisson_flux_xface (Box const& box, Array4<Real> const& fx,
     }
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void mlpoisson_flux_y (Box const& box, Array4<Real> const& fy,
-                       Array4<Real const> const& sol, Real dyinv) noexcept
+                       Array4<Real const> const& sol, Real dyinv)
 {
     const auto lo = amrex::lbound(box);
     const auto hi = amrex::ubound(box);
@@ -64,9 +64,9 @@ void mlpoisson_flux_y (Box const& box, Array4<Real> const& fy,
     }
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void mlpoisson_flux_yface (Box const& box, Array4<Real> const& fy,
-                           Array4<Real const> const& sol, Real dyinv, int ylen) noexcept
+                           Array4<Real const> const& sol, Real dyinv, int ylen)
 {
     const auto lo = amrex::lbound(box);
     const auto hi = amrex::ubound(box);
@@ -85,9 +85,9 @@ void mlpoisson_flux_yface (Box const& box, Array4<Real> const& fy,
     }
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void mlpoisson_flux_z (Box const& box, Array4<Real> const& fz,
-                       Array4<Real const> const& sol, Real dzinv) noexcept
+                       Array4<Real const> const& sol, Real dzinv)
 {
     const auto lo = amrex::lbound(box);
     const auto hi = amrex::ubound(box);
@@ -102,9 +102,9 @@ void mlpoisson_flux_z (Box const& box, Array4<Real> const& fz,
     }
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void mlpoisson_flux_zface (Box const& box, Array4<Real> const& fz,
-                           Array4<Real const> const& sol, Real dzinv, int zlen) noexcept
+                           Array4<Real const> const& sol, Real dzinv, int zlen)
 {
     const auto lo = amrex::lbound(box);
     const auto hi = amrex::ubound(box);
@@ -126,7 +126,7 @@ void mlpoisson_flux_zface (Box const& box, Array4<Real> const& fz,
     }
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void mlpoisson_gsrb (Box const& box, Array4<Real> const& phi,
                      Array4<Real const> const& rhs,
                      Real dhx, Real dhy, Real dhz,
@@ -136,7 +136,7 @@ void mlpoisson_gsrb (Box const& box, Array4<Real> const& phi,
                      Array4<Real const> const& f3, Array4<int const> const& m3,
                      Array4<Real const> const& f4, Array4<int const> const& m4,
                      Array4<Real const> const& f5, Array4<int const> const& m5,
-                     Box const& vbox, int redblack) noexcept
+                     Box const& vbox, int redblack)
 {
     const auto lo = amrex::lbound(box);
     const auto hi = amrex::ubound(box);

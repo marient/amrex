@@ -24,7 +24,7 @@ CArena::CArena (std::size_t hunk_size, ArenaInfo info)
 CArena::~CArena ()
 {
     for (unsigned int i = 0, N = m_alloc.size(); i < N; i++) {
-        deallocate_system(m_alloc[i].first, m_alloc[i].second);
+        deallocate_system(m_alloc[i]);
     }
 }
 
@@ -55,7 +55,7 @@ CArena::alloc (std::size_t nbytes)
 
         m_used += N;
 
-        m_alloc.push_back(std::make_pair(vp,N));
+        m_alloc.push_back(vp);
 
         if (nbytes < m_hunk)
         {
@@ -183,7 +183,7 @@ CArena::free (void* vp)
 }
 
 std::size_t
-CArena::heap_space_used () const noexcept
+CArena::heap_space_used () const
 {
     return m_used;
 }

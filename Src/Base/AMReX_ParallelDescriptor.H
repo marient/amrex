@@ -80,21 +80,6 @@ namespace ParallelDescriptor
 	MPI_Request        m_req;
 	mutable MPI_Status m_stat;
     };
-
-#ifdef BL_USE_MPI
-    void MPI_Error(const char* file, int line, const char* msg, int rc);
-
-#define BL_MPI_REQUIRE(x)						\
-do									\
-{									\
-  if ( int l_status_ = (x) )						\
-    {									\
-        amrex::ParallelDescriptor::MPI_Error(__FILE__,__LINE__,#x, l_status_); \
-    }									\
-}									\
-while ( false )
-#endif
-
     /**
     * \brief Perform any needed parallel initialization.  This MUST be the
     * first routine in this class called from within a program.
@@ -121,12 +106,12 @@ while ( false )
 
     //! return the rank number local to the current Parallel Context
     inline int
-    MyProc () noexcept
+    MyProc ()
     {
         return ParallelContext::MyProcAll();
     }
     inline int
-    MyProc (MPI_Comm comm) noexcept
+    MyProc (MPI_Comm comm)
     {
 #ifdef BL_USE_MPI
 	int r;
@@ -201,29 +186,14 @@ while ( false )
     extern ProcessTeam m_Team;
 
     extern int m_MinTag, m_MaxTag;
-    inline int MinTag () noexcept { return m_MinTag; }
-    inline int MaxTag () noexcept { return m_MaxTag; }
-
-    extern MPI_Comm m_comm;
-    inline MPI_Comm Communicator () noexcept { return m_comm; }
+    inline int MinTag () { return m_MinTag; }
+    inline int MaxTag () { return m_MaxTag; }
 
     //! return the number of MPI ranks local to the current Parallel Context
     inline int
-    NProcs () noexcept
+    NProcs ()
     {
         return ParallelContext::NProcsAll();
-    }
-
-    inline int
-    NProcs (MPI_Comm comm) noexcept
-    {
-#ifdef BL_USE_MPI
-        int s;
-        BL_MPI_REQUIRE(MPI_Comm_size(comm, &s));
-        return s;
-#else
-        return 1;
-#endif
     }
     /**
     * \brief The MPI rank number of the I/O Processor (probably rank 0).
@@ -231,7 +201,7 @@ while ( false )
     */
     extern const int ioProcessor;
     inline int
-    IOProcessorNumber () noexcept
+    IOProcessorNumber ()
     {
         return ioProcessor;
     }
@@ -240,86 +210,73 @@ while ( false )
     * To get the rank number, call IOProcessorNumber()
     */
     inline bool
-    IOProcessor () noexcept
+    IOProcessor ()
     {
          return MyProc() == IOProcessorNumber();
     }
-
-    inline int
-    IOProcessorNumber (MPI_Comm comm) noexcept
-    {
-        return (comm == ParallelDescriptor::Communicator()) ? ioProcessor : 0;
-    }
-
-    inline bool
-    IOProcessor (MPI_Comm comm) noexcept
-    {
-        return MyProc(comm) == IOProcessorNumber(comm);
-    }
-
     //
     inline int
-    TeamSize () noexcept
+    TeamSize ()
     {
 	return m_Team.m_size;
     }
     inline int
-    NTeams () noexcept
+    NTeams ()
     {
 	return m_Team.m_numTeams;
     }
     inline int
-    MyTeamColor () noexcept
+    MyTeamColor ()
     {
 	return m_Team.m_color;
     }
     inline int
-    MyTeamLead () noexcept
+    MyTeamLead ()
     {
 	return m_Team.m_lead;
     }
     inline int
-    MyRankInTeam () noexcept
+    MyRankInTeam ()
     {
 	return m_Team.m_rankInTeam;
     }
     inline int
-    TeamLead (int rank) noexcept
+    TeamLead (int rank)
     {
 	return (rank >= 0) ? (rank - rank % m_Team.m_size) : MPI_PROC_NULL;
     }
     inline bool
-    isTeamLead () noexcept
+    isTeamLead ()
     {
 	return MyRankInTeam() == 0;
     }
     inline bool
-    sameTeam (int rank) noexcept
+    sameTeam (int rank)
     {
 	return MyTeamLead() == TeamLead(rank);
     }
     inline bool
-    sameTeam (int rankA, int rankB) noexcept
+    sameTeam (int rankA, int rankB)
     {
 	return TeamLead(rankA) == TeamLead(rankB);
     }
     inline int
-    RankInLeadComm (int rank) noexcept
+    RankInLeadComm (int rank)
     {
 	return (rank >= 0) ? (rank / m_Team.m_size) : MPI_PROC_NULL;
     }
     inline bool
-    doTeamReduce () noexcept
+    doTeamReduce ()
     {
 	return m_Team.m_do_team_reduce;
     }
     inline const ProcessTeam&
-    MyTeam () noexcept
+    MyTeam ()
     {
 	return m_Team;
     }
     inline std::pair<int,int>
-    team_range (int begin, int end, int rit = -1, int nworkers = 0) noexcept
+    team_range (int begin, int end, int rit = -1, int nworkers = 0)
     {
 	int rb, re;
 	{
@@ -386,6 +343,8 @@ while ( false )
 	    f(i);
 	}
     }
+    extern MPI_Comm m_comm;
+    inline MPI_Comm Communicator () { return m_comm; }
 
     void Barrier (const std::string& message = Unnamed);
     void Barrier (const MPI_Comm &comm, const std::string& message = Unnamed);
@@ -398,7 +357,7 @@ while ( false )
     //! ErrorString return string associated with error internal error condition
     const char* ErrorString (int errcode);
     //! Returns wall-clock seconds since start of execution.
-    double second () noexcept;
+    double second ();
 
     //! And-wise boolean reduction.
     void ReduceBoolAnd (bool& rvar);
@@ -512,7 +471,7 @@ while ( false )
     * \brief Returns sequential message sequence numbers, usually used as
     * tags for send/recv.
     */
-    inline int SeqNum () noexcept { return ParallelContext::get_inc_mpi_tag(); }
+    inline int SeqNum () { return ParallelContext::get_inc_mpi_tag(); }
 
     template <class T> Message Asend(const T*, size_t n, int pid, int tag);
     template <class T> Message Asend(const T*, size_t n, int pid, int tag, MPI_Comm comm);
@@ -551,6 +510,8 @@ while ( false )
     void Waitany  (Vector<MPI_Request>& reqs, int &index, MPI_Status& status);
     void Waitsome (Vector<MPI_Request>&, int&, Vector<int>&, Vector<MPI_Status>&);
 
+    void MPI_Error(const char* file, int line, const char* msg, int rc);
+
     void ReadAndBcastFile(const std::string &filename, Vector<char> &charBuf,
                           bool bExitOnError = true,
 			  const MPI_Comm &comm = Communicator() );
@@ -566,9 +527,19 @@ while ( false )
 }
 }
 
+#define BL_MPI_REQUIRE(x)						\
+do									\
+{									\
+  if ( int l_status_ = (x) )						\
+    {									\
+        amrex::ParallelDescriptor::MPI_Error(__FILE__,__LINE__,#x, l_status_); \
+    }									\
+}									\
+while ( false )
+
 namespace amrex {
 
-#ifdef BL_USE_MPI
+#if BL_USE_MPI
 template <class T>
 ParallelDescriptor::Message
 ParallelDescriptor::Asend (const T* buf,

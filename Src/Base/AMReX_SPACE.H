@@ -41,7 +41,7 @@
 #ifdef __cplusplus
 namespace amrex
 {
-    constexpr int SpaceDim = AMREX_SPACEDIM;
+    const int SpaceDim = AMREX_SPACEDIM;
 }
 #endif
 

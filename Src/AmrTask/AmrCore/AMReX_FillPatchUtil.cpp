@@ -166,7 +166,7 @@ namespace amrex
 			    cgeom,
 			    fgeom,
 			    bcr,
-			    idummy1, idummy2, RunOn::Cpu);
+			    idummy1, idummy2);
 		}
 	    }
 	}

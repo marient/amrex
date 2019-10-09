@@ -158,8 +158,7 @@ contains
   ! Used incorrectly, this will cause memory leak!
   subroutine amrex_fab_reset_omp_private (this)
     class(amrex_fab), intent(inout) :: this
-    type(amrex_box) :: b
-    this%bx = b
+    this%bx = amrex_box()
     this%nc = 0
     this%owner = .false.
     this%cp = c_null_ptr

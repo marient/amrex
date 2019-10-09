@@ -139,7 +139,7 @@ FABio::write_header (std::ostream&    os,
                      const FArrayBox& f,
                      int              nvar) const
 {
-//    BL_PROFILE("FABio::write_header");
+    BL_PROFILE("FABio::write_header");
     BL_ASSERT(nvar <= f.nComp());
     amrex::StreamRetry sr(os, "FABio_write_header", 4);
     while(sr.TryOutput()) {
@@ -151,49 +151,47 @@ FABio::Format FArrayBox::format;
 
 FABio* FArrayBox::fabio = 0;
 
-FArrayBox::FArrayBox () noexcept {}
+FArrayBox::FArrayBox () {}
 
-FArrayBox::FArrayBox (Arena* ar) noexcept
-    : BaseFab<Real>(ar)
-{}
-
-FArrayBox::FArrayBox (const Box& b, int ncomp, Arena* ar)
-    : BaseFab<Real>(b,ncomp,ar)
-{
-    initVal();
-}
-
-FArrayBox::FArrayBox (const Box& b, int n, bool alloc, bool shared, Arena* ar)
-    : BaseFab<Real>(b,n,alloc,shared,ar)
+FArrayBox::FArrayBox (const Box& b,
+                      int        n,
+		      bool       alloc,
+		      bool       shared)
+    :
+    BaseFab<Real>(b,n,alloc,shared)
 {
     if (alloc) initVal();
 }
 
 FArrayBox::FArrayBox (const FArrayBox& rhs, MakeType make_type, int scomp, int ncomp)
-    : BaseFab<Real>(rhs,make_type,scomp,ncomp)
+    :
+    BaseFab<Real>(rhs,make_type,scomp,ncomp)
 {
 }
 
-FArrayBox::FArrayBox (const Box& b, int ncomp, Real* p) noexcept
-    : BaseFab<Real>(b,ncomp,p)
+#ifdef AMREX_USE_GPU
+FArrayBox::FArrayBox (const FArrayBox& rhs, MakeType make_type)
+    :
+    BaseFab<Real>(rhs,make_type)
 {
 }
+#endif
 
-FArrayBox::FArrayBox (const Box& b, int ncomp, Real const* p) noexcept
-    : BaseFab<Real>(b,ncomp,p)
+FArrayBox::FArrayBox (const Box& b, int ncomp, Real* p)
+    :
+    BaseFab<Real>(b,ncomp,p)
 {
 }
 
 FArrayBox&
-FArrayBox::operator= (Real v) noexcept
+FArrayBox::operator= (Real v)
 {
     BaseFab<Real>::operator=(v);
     return *this;
 }
 
-// Note that initval is not GPU friendly.
 void
-FArrayBox::initVal () noexcept
+FArrayBox::initVal ()
 {
     if (init_snan) {
 #ifdef BL_USE_DOUBLE
@@ -222,7 +220,8 @@ FArrayBox::initVal () noexcept
 }
 
 void
-FArrayBox::resize (const Box& b, int N)
+FArrayBox::resize (const Box& b,
+                   int        N)
 {
     BaseFab<Real>::resize(b,N);
     initVal();
@@ -474,7 +473,7 @@ FABio*
 FABio::read_header (std::istream& is,
                     FArrayBox&    f)
 {
-//    BL_PROFILE("FArrayBox::read_header_is");
+    BL_PROFILE("FArrayBox::read_header_is");
     int nvar;
     Box bx;
     FABio* fio = 0;
@@ -551,7 +550,7 @@ FABio::read_header (std::istream& is,
 		    int           compIndex,
 		    int&          nCompAvailable)
 {
-//    BL_PROFILE("FArrayBox::read_header_is_i");
+    BL_PROFILE("FArrayBox::read_header_is_i");
     int nvar;
     Box bx;
     FABio *fio = 0;
@@ -626,9 +625,11 @@ FABio::read_header (std::istream& is,
 }
 
 void
-FArrayBox::writeOn (std::ostream& os, int comp, int num_comp) const
+FArrayBox::writeOn (std::ostream& os,
+                    int           comp,
+                    int           num_comp) const
 {
-//    BL_PROFILE("FArrayBox::writeOn");
+    BL_PROFILE("FArrayBox::writeOn");
     BL_ASSERT(comp >= 0 && num_comp >= 1 && (comp+num_comp) <= nComp());
     fabio->write_header(os, *this, num_comp);
     os.flush();  // 2016-08-30: Titan requires this flush() (probably due to a bug).
@@ -638,7 +639,7 @@ FArrayBox::writeOn (std::ostream& os, int comp, int num_comp) const
 void
 FArrayBox::readFrom (std::istream& is)
 {
-//    BL_PROFILE("FArrayBox::readFrom_is");
+    BL_PROFILE("FArrayBox::readFrom_is");
     FABio* fabrd = FABio::read_header(is, *this);
     fabrd->read(is, *this);
     delete fabrd;
@@ -648,7 +649,7 @@ FArrayBox::readFrom (std::istream& is)
 int
 FArrayBox::readFrom (std::istream& is, int compIndex)
 {
-//    BL_PROFILE("FArrayBox::readFrom_is_i");
+    BL_PROFILE("FArrayBox::readFrom_is_i");
     int nCompAvailable;
     FABio* fabrd = FABio::read_header(is, *this, compIndex, nCompAvailable);
     BL_ASSERT(compIndex >= 0 && compIndex < nCompAvailable);
@@ -769,7 +770,7 @@ FABio_8bit::write (std::ostream&    os,
 {
     BL_ASSERT(comp >= 0 && num_comp >= 1 && (comp+num_comp) <= f.nComp());
 
-    const Real eps = 1.0e-8_rt; // FIXME - whats a better value?
+    const Real eps = Real(1.0e-8); // FIXME - whats a better value?
     const long siz = f.box().numPts();
 
     unsigned char *c = new unsigned char[siz];
@@ -890,7 +891,7 @@ FABio_binary::write_header (std::ostream&    os,
                             const FArrayBox& f,
                             int              nvar) const
 {
-//    BL_PROFILE("FABio_binary::write_header");
+    BL_PROFILE("FABio_binary::write_header");
     os << "FAB " << *realDesc;
     FABio::write_header(os, f, nvar);
 }
@@ -899,7 +900,7 @@ void
 FABio_binary::read (std::istream& is,
                     FArrayBox&    f) const
 {
-//    BL_PROFILE("FABio_binary::read");
+    BL_PROFILE("FABio_binary::read");
     const long base_siz = f.box().numPts();
     Real* comp_ptr      = f.dataPtr(0);
     const long siz      = base_siz*f.nComp();
@@ -915,7 +916,7 @@ FABio_binary::write (std::ostream&    os,
                      int              comp,
                      int              num_comp) const
 {
-//    BL_PROFILE("FABio_binary::write");
+    BL_PROFILE("FABio_binary::write");
     BL_ASSERT(comp >= 0 && num_comp >= 1 && (comp+num_comp) <= f.nComp());
 
     const long base_siz  = f.box().numPts();

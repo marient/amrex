@@ -1,3 +1,4 @@
+
 #include <cstdlib>
 #include <cstring>
 #include <cctype>
@@ -20,7 +21,6 @@
 #include <AMReX_Utility.H>
 #include <AMReX_BLassert.H>
 #include <AMReX_BLProfiler.H>
-#include <AMReX_Print.H>
 
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_BoxArray.H>
@@ -36,9 +36,7 @@
 #include <sys/param.h>
 #include <unistd.h>
 
-
 using std::ostringstream;
-
 
 namespace {
     const char* path_sep_str = "/";
@@ -285,7 +283,7 @@ amrex::UniqueString()
 void
 amrex::UtilCreateCleanDirectory (const std::string &path, bool callbarrier)
 {
-  if(ParallelContext::IOProcessorSub()) {
+  if(ParallelDescriptor::IOProcessor()) {
     if(amrex::FileExists(path)) {
       std::string newoldname(path + ".old." + amrex::UniqueString());
       if (amrex::system::verbose > 1) {
@@ -308,7 +306,7 @@ amrex::UtilCreateCleanDirectory (const std::string &path, bool callbarrier)
 void
 amrex::UtilCreateDirectoryDestructive(const std::string &path, bool callbarrier)
 {
-  if(ParallelContext::IOProcessorSub()) 
+  if(ParallelDescriptor::IOProcessor()) 
   {
     if(amrex::FileExists(path)) 
     {
@@ -338,7 +336,7 @@ amrex::UtilCreateDirectoryDestructive(const std::string &path, bool callbarrier)
 void
 amrex::UtilRenameDirectoryToOld (const std::string &path, bool callbarrier)
 {
-  if(ParallelContext::IOProcessorSub()) {
+  if(ParallelDescriptor::IOProcessor()) {
     if(amrex::FileExists(path)) {
       std::string newoldname(path + ".old." + amrex::UniqueString());
       if (amrex::Verbose() > 1) {
@@ -360,6 +358,155 @@ amrex::OutOfMemory ()
     amrex::Error("Sorry, out of memory, bye ...");
 }
 
+namespace
+{
+    int nthreads;
+
+    amrex::Vector<std::mt19937> generators;
+}
+
+void
+amrex::InitRandom (unsigned long seed, int nprocs)
+{
+
+#ifdef _OPENMP
+    nthreads = omp_get_max_threads();
+#else
+    nthreads = 1;
+#endif
+    generators.resize(nthreads);
+
+#ifdef _OPENMP
+#pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        unsigned long init_seed = seed + tid*nprocs;
+        generators[tid].seed(init_seed);
+    }
+#else
+    generators[0].seed(seed);
+#endif
+}
+
+void amrex::ResetRandomSeed(unsigned long seed)
+{
+    InitRandom(seed);
+}
+
+double
+amrex::RandomNormal (double mean, double stddev)
+{
+#ifdef _OPENMP
+    int tid = omp_get_thread_num();
+#else
+    int tid = 0;
+#endif
+    std::normal_distribution<double> distribution(mean, stddev);
+    return distribution(generators[tid]);
+}
+
+double
+amrex::Random ()
+{
+#ifdef _OPENMP
+    int tid = omp_get_thread_num();
+#else
+    int tid = 0;
+#endif
+    std::uniform_real_distribution<double> distribution(0.0, 1.0);
+    return distribution(generators[tid]);
+}
+
+unsigned long
+amrex::Random_int(unsigned long n)
+{
+#ifdef _OPENMP
+    int tid = omp_get_thread_num();
+#else
+    int tid = 0;
+#endif
+    std::uniform_int_distribution<unsigned long> distribution(0, n-1);
+    return distribution(generators[tid]);
+}
+
+void
+amrex::SaveRandomState(std::ostream& os)
+{
+    for (int i = 0; i < nthreads; i++) {
+        os << generators[i] << "\n";
+    }
+}
+
+void
+amrex::RestoreRandomState(std::istream& is, int nthreads_old, int nstep_old)
+{
+    int N = std::min(nthreads, nthreads_old);
+    for (int i = 0; i < N; i++)
+        is >> generators[i];
+    if (nthreads > nthreads_old) {
+        const int NProcs = ParallelDescriptor::NProcs();
+        const int MyProc = ParallelDescriptor::MyProc();
+        for (int i = nthreads_old; i < nthreads; i++) {
+	    unsigned long seed = MyProc+1 + i*NProcs;
+	    if (ULONG_MAX/(unsigned long)(nstep_old+1) >static_cast<unsigned long>(nthreads*NProcs)) { // avoid overflow
+		seed += nstep_old*nthreads*NProcs;
+	    }
+
+            generators[i].seed(seed);
+        }
+    }
+}
+
+void
+amrex::UniqueRandomSubset (Vector<int> &uSet, int setSize, int poolSize,
+                           bool printSet)
+{
+  if(setSize > poolSize) {
+    amrex::Abort("**** Error in UniqueRandomSubset:  setSize > poolSize.");
+  }
+  std::set<int> copySet;
+  Vector<int> uSetTemp;
+  while(static_cast<int>(copySet.size()) < setSize) {
+    int r(amrex::Random_int(poolSize));
+    if(copySet.find(r) == copySet.end()) {
+      copySet.insert(r);
+      uSetTemp.push_back(r);
+    }
+  }
+  uSet = uSetTemp;
+  if(printSet) {
+    for(int i(0); i < uSet.size(); ++i) {
+        amrex::AllPrint() << "uSet[" << i << "]  = " << uSet[i] << std::endl;
+    }
+  }
+}
+
+void
+amrex::NItemsPerBin (int totalItems, Vector<int> &binCounts)
+{
+  if(binCounts.size() == 0) {
+    return;
+  }
+  bool verbose(false);
+  int countForAll(totalItems / binCounts.size());
+  int remainder(totalItems % binCounts.size());
+  if(verbose) {
+      amrex::Print() << "amrex::NItemsPerBin:  countForAll remainder = " << countForAll
+                     << "  " << remainder << std::endl;
+  }
+  for(int i(0); i < binCounts.size(); ++i) {
+    binCounts[i] = countForAll;
+  }
+  for(int i(0); i < remainder; ++i) {
+    ++binCounts[i];
+  }
+  for(int i(0); i < binCounts.size(); ++i) {
+    if(verbose) {
+        amrex::Print() << "amrex::NItemsPerBin::  binCounts[" << i << "] = " << binCounts[i] << std::endl;
+    }
+  }
+}
+
 // -------------------------------------------------------------------
 int amrex::CRRBetweenLevels(int fromlevel, int tolevel,
                             const Vector<int> &refratios)
@@ -373,6 +520,102 @@ int amrex::CRRBetweenLevels(int fromlevel, int tolevel,
   }
   return rr;
 }
+
+// -------------------------------------------------------------------
+int amrex::HashDistributionMap(const DistributionMapping &dm, int hashSize)
+{
+  BL_ASSERT(hashSize > 0);
+
+  const Vector<int> &dmArrayMap = dm.ProcessorMap();
+  Vector<long> hash(hashSize, 0);
+
+  // Create hash by summing processer map over
+  //   a looped hash array of given size. 
+  for (int i=0; i<dmArrayMap.size(); i++)
+  {
+    int hashIndex = (i%hashSize);
+    hash[hashIndex] += dmArrayMap[i];
+  }
+
+  // Output hash is the ones digit of each element
+  //   of the hash array.
+  ostringstream outstr;
+  for (int j=0; j<hashSize; j++)
+  {
+     outstr << (hash[j]%10); 
+  }
+
+  //
+  return ( std::atoi(outstr.str().c_str()) );
+}
+
+// -------------------------------------------------------------------
+int amrex::HashBoxArray(const BoxArray & ba, int hashSize)
+{
+  BL_ASSERT(hashSize > 0);
+
+  Vector<long> hash(hashSize, 0);
+  int hashSum(0), hashCount(0);
+
+  // Create hash by summing smallEnd, bigEnd and type
+  //   over a looped hash array of given size.
+  // For any empty boxes, skip AMREX_SPACEDIM inputs.
+  // For an empty box array, hash=0, regardless of size.
+  if (!ba.empty())
+  {
+    for (int i=0; i<ba.size(); i++)
+    {
+      if (!ba[i].isEmpty())
+      {
+        for (int j=0; j<AMREX_SPACEDIM; j++)
+        {
+           hashSum = ba[i].smallEnd(j) + ba[i].bigEnd(j) + ba[i].ixType()[j];
+           hash[(hashCount%hashSize)] += hashSum;
+           hashCount++;
+        }
+      }
+      else
+      {
+        hashCount+=AMREX_SPACEDIM;
+      }
+    }
+  }
+
+  // Output hash is the ones digit of each element
+  //   of the hash array.
+  ostringstream outstr;
+  for (int j=0; j<hashSize; j++)
+  {
+     outstr << (hash[j]%10); 
+  }
+
+  return ( std::atoi(outstr.str().c_str()) );
+} 
+
+
+
+//
+// Fortran entry points for amrex::Random().
+//
+
+#ifndef AMREX_XSDK
+BL_FORT_PROC_DECL(BLUTILINITRAND,blutilinitrand)(const int* sd)
+{
+    unsigned long seed = *sd;
+    amrex::InitRandom(seed);
+}
+
+BL_FORT_PROC_DECL(BLINITRAND,blinitrand)(const int* sd)
+{
+    unsigned long seed = *sd;
+    amrex::InitRandom(seed);
+}
+
+BL_FORT_PROC_DECL(BLUTILRAND,blutilrand)(amrex::Real* rn)
+{
+    *rn = amrex::Random();
+}
+#endif
 
 //
 // Lower tail quantile for standard normal distribution function.
@@ -475,6 +718,22 @@ amrex::InvNormDist (double p)
 
     return x;
 }
+
+#ifndef AMREX_XSDK
+BL_FORT_PROC_DECL(BLINVNORMDIST,blinvnormdist)(amrex::Real* result)
+{
+    //
+    // Convert from [0, 1) to (0,1)
+    // 
+    double val = 0.0;
+    while (val == 0.0) {
+        val = amrex::Random();
+    }
+
+    *result = amrex::InvNormDist(val);
+}
+#endif
+
 
 //
 //****************************************************************************80
@@ -628,6 +887,21 @@ amrex::InvNormDistBest (double p)
 
   return value;
 }
+
+#ifndef AMREX_XSDK
+BL_FORT_PROC_DECL(BLINVNORMDISTBEST,blinvnormdistbest)(amrex::Real* result)
+{
+    //
+    // Convert from [0, 1) to (0,1)
+    // 
+    double val = 0.0;
+    while (val == 0.0) {
+        val = amrex::Random();
+    }
+
+    *result = amrex::InvNormDistBest(val);
+}
+#endif
 
 //
 // Sugar for parsing IO
@@ -1042,7 +1316,7 @@ namespace {
     static auto clock_time_begin = amrex::MaxResSteadyClock::now();
 }
 
-double amrex::second () noexcept
+double amrex::second ()
 {
     return std::chrono::duration_cast<std::chrono::duration<double> >
         (amrex::MaxResSteadyClock::now() - clock_time_begin).count();
@@ -1059,5 +1333,15 @@ extern "C" {
     void amrex_free (void* p)
     {
         std::free(p);
+    }
+
+    double amrex_random ()
+    {
+        return amrex::Random();
+    }
+
+    long amrex_random_int (long n)  // This is for Fortran, which doesn't have unsigned long.
+    {
+        return static_cast<long>(amrex::Random_int(static_cast<unsigned long>(n)));
     }
 }

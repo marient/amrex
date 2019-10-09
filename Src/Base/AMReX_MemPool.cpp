@@ -14,13 +14,13 @@
 #include <AMReX_MemPool.H>
 #include <AMReX_Vector.H>
 
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
 #include <AMReX_MemProfiler.H>
 #endif
 
 #include <AMReX_ParmParse.H>
 
-#ifdef USE_PERILLA_PTHREADS
+#ifdef USE_PERILLA
 #include <WorkerThread.H>
 #endif
 
@@ -54,8 +54,7 @@ void amrex_mempool_init ()
 	nthreads = omp_get_max_threads();
 #endif
 
-
-#ifdef USE_PERILLA_PTHREADS
+#ifdef USE_PERILLA
 #ifdef _OPENMP
 	//Just in case Perilla thread spawns multiple OMP threads
         nthreads *= perilla::nThreads();
@@ -78,7 +77,7 @@ void amrex_mempool_init ()
 	    amrex_mempool_free(p);
 	}
 
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
 	MemProfiler::add("MemPool", std::function<MemProfiler::MemInfo()>
 			 ([] () -> MemProfiler::MemInfo {
 			     int MB_min, MB_max, MB_tot;
@@ -104,7 +103,7 @@ void* amrex_mempool_alloc (size_t nbytes)
   tid = omp_get_thread_num();
 #endif
 
-#ifdef USE_PERILLA_PTHREADS
+#ifdef USE_PERILLA
 #ifdef _OPENMP
   tid = perilla::tid()*omp_get_max_threads()+tid;
 #else
@@ -122,7 +121,7 @@ void amrex_mempool_free (void* p)
   tid = omp_get_thread_num();
 #endif
 
-#ifdef USE_PERILLA_PTHREADS
+#ifdef USE_PERILLA
 #ifdef _OPENMP
   tid = perilla::tid()*omp_get_max_threads()+tid;
 #else

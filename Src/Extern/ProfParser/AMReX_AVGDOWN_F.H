@@ -1,5 +1,5 @@
-#ifndef AMREX_AVGDOWN_F_H
-#define AMREX_AVGDOWN_F_H
+#ifndef _AVGDOWN_F_H
+#define _AVGDOWN_F_H
 
 #ifdef BL_LANG_FORT
 #    define FORT_AVGDOWN         avgdown

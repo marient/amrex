@@ -191,7 +191,7 @@ namespace
                         const char* call,
                         int         status)
     {
-	constexpr int N = 1024;
+	const int N = 512;
 	static char buf[N];
 	if ( status )
 	{
@@ -345,7 +345,7 @@ ParallelDescriptor::EndParallel ()
 }
 
 double
-ParallelDescriptor::second () noexcept
+ParallelDescriptor::second ()
 {
     return MPI_Wtime();
 }
@@ -1555,13 +1555,6 @@ ParallelDescriptor::Mpi_typemap<unsigned long>::type ()
 
 template <>
 MPI_Datatype
-ParallelDescriptor::Mpi_typemap<unsigned long long>::type ()
-{
-    return  MPI_UNSIGNED_LONG_LONG;
-}
-    
-template <>
-MPI_Datatype
 ParallelDescriptor::Mpi_typemap<float>::type ()
 {
     return  MPI_FLOAT;
@@ -1808,7 +1801,7 @@ void ParallelDescriptor::ReduceBoolOr  (bool&,int) {}
 void ParallelDescriptor::Bcast(void *, int, MPI_Datatype, int, MPI_Comm) {}
 
 double
-ParallelDescriptor::second () noexcept
+ParallelDescriptor::second ()
 {
     return amrex::second();
 }

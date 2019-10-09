@@ -43,7 +43,7 @@ namespace amrex
     BoxList GetBndryCells (const BoxArray& ba, int ngrow);
 
     //! Read a BoxArray from a stream.  If b is true, read in a special way
-    void readBoxArray (BoxArray& ba, std::istream& s, bool b = false);
+    void readBoxArray (BoxArray& ba, std::istream& s, bool b);
 
     //! Note that two BoxArrays that match are not necessarily equal.
     bool match (const BoxArray& x, const BoxArray& y);
@@ -68,7 +68,7 @@ struct BARef
     void define (std::istream& is, int& ndims);
     //!
     void resize (long n);
-#ifdef AMREX_MEM_PROFILING
+#ifdef BL_MEM_PROFILING
     void updateMemoryUsage_box (int s);
     void updateMemoryUsage_hash (int s);
 #endif
@@ -211,21 +211,6 @@ public:
     //! Construct an empty BoxArray.
     BoxArray ();
 
-    //! The copy constructor.
-    BoxArray (const BoxArray& rhs);
-
-    //! The assignment operator.
-    BoxArray& operator= (const BoxArray& rhs);
-
-    //! The move constructor.
-    BoxArray (BoxArray&& rhs) noexcept = default;
-
-    //! The move assignment operator.
-    BoxArray& operator=(BoxArray&& rhs) noexcept = default;
-
-    //! The destructor.
-    ~BoxArray() noexcept = default;
-
     //! Make a boxarray out of a single box
     explicit BoxArray (const Box& bx);
 
@@ -242,7 +227,17 @@ public:
 
     BoxArray (const BoxArray& rhs, const BATransformer& trans);
 
-    
+    //! The copy constructor.
+    BoxArray (const BoxArray& rhs);
+
+    //! The assignment operator.
+    BoxArray& operator= (const BoxArray& rhs);
+
+    //! The move constructor
+    BoxArray (BoxArray&& rhs) noexcept;
+
+    //! The destructor.
+    ~BoxArray ();
     /**
     * \brief Initialize the BoxArray from a single box.
     * It is an error if the BoxArray has already been initialized.
@@ -262,19 +257,19 @@ public:
     void resize (long len);
 
     //! Return the number of boxes in the BoxArray.
-    long size () const noexcept { return m_ref->m_abox.size(); }
+    long size () const { return m_ref->m_abox.size(); }
 
     //! Return the number of boxes that can be held in the current allocated storage
-    long capacity () const noexcept { return m_ref->m_abox.capacity(); }
+    long capacity () const { return m_ref->m_abox.capacity(); }
 
     //! Return whether the BoxArray is empty
-    bool empty () const noexcept { return m_ref->m_abox.empty(); }
+    bool empty () const { return m_ref->m_abox.empty(); }
 
     //! Returns the total number of cells contained in all boxes in the BoxArray.
-    long numPts() const noexcept;
+    long numPts() const;
 
     //! Returns the total number of cells (in double type) contained in all boxes in the BoxArray.
-    double d_numPts () const noexcept;
+    double d_numPts () const;
     /**
     * \brief Initialize the BoxArray from the supplied istream.
     * It is an error if the BoxArray has already been initialized.
@@ -287,16 +282,13 @@ public:
     std::ostream& writeOn (std::ostream&) const;
 
     //! Are the BoxArrays equal?
-    bool operator== (const BoxArray& rhs) const noexcept;
+    bool operator== (const BoxArray& rhs) const;
 
     //! Are the BoxArrays not equal?
-    bool operator!= (const BoxArray& rhs) const noexcept;
-
-    bool operator== (const Vector<Box>& bv) const noexcept;
-    bool operator!= (const Vector<Box>& bv) const noexcept;
+    bool operator!= (const BoxArray& rhs) const;
 
     //!  Are the BoxArrays equal after conversion to cell-centered
-    bool CellEqual (const BoxArray& rhs) const noexcept;
+    bool CellEqual (const BoxArray& rhs) const;
 
     //! Forces each Box in BoxArray to have sides <= block_size.
     BoxArray& maxSize (int block_size);
@@ -322,7 +314,6 @@ public:
 
     //! Grow and then coarsen each Box in the BoxArray.
     BoxArray& growcoarsen (int n, const IntVect& refinement_ratio);
-    BoxArray& growcoarsen (IntVect const& ngrow, const IntVect& refinement_ratio);
 
     //! Grow each Box in the BoxArray by the specified amount.
     BoxArray& grow (int n);
@@ -379,7 +370,7 @@ public:
     void set (int i, const Box& ibox);
 
     //! Return element index of this BoxArray.
-    Box operator[] (int index) const noexcept {
+    Box operator[] (int index) const {
         Box r = m_ref->m_abox[index];
         if (m_simple) {
             r.coarsen(m_crse_ratio).convert(m_typ);
@@ -390,13 +381,13 @@ public:
     }
 
     //! Return element index of this BoxArray.
-    Box operator[] (const MFIter& mfi) const noexcept;
+    Box operator[] (const MFIter& mfi) const;
 
     //! Return element index of this BoxArray.
-    Box get (int index) const noexcept { return operator[](index); }
+    Box get (int index) const { return operator[](index); }
 
     //! Return cell-centered box at element index of this BoxArray.
-    Box getCellCenteredBox (int index) const noexcept {
+    Box getCellCenteredBox (int index) const {
         return amrex::coarsen(m_ref->m_abox[index],m_crse_ratio);
     }
 
@@ -468,24 +459,24 @@ public:
     static bool SameRefs (const BoxArray& lhs, const BoxArray& rhs) { return lhs.m_ref == rhs.m_ref; }
 
     struct RefID {
-        RefID () noexcept : data(nullptr) {}
-        explicit RefID (BARef* data_) noexcept : data(data_) {}
-        bool operator<  (const RefID& rhs) const noexcept { return std::less<BARef*>()(data,rhs.data); }
-        bool operator== (const RefID& rhs) const noexcept { return data == rhs.data; }
-        bool operator!= (const RefID& rhs) const noexcept { return data != rhs.data; }
+        RefID () : data(nullptr) {}
+        explicit RefID (BARef* data_) : data(data_) {}
+        bool operator<  (const RefID& rhs) const { return std::less<BARef*>()(data,rhs.data); }
+        bool operator== (const RefID& rhs) const { return data == rhs.data; }
+        bool operator!= (const RefID& rhs) const { return data != rhs.data; }
         friend std::ostream& operator<< (std::ostream& os, const RefID& id);
     private:
         BARef* data;
     };
 
     //! Return a unique ID of the reference
-    RefID getRefID () const noexcept { return RefID { m_ref.get() }; }
+    RefID getRefID () const { return RefID { m_ref.get() }; }
 
     //! Return index type of this BoxArray
-    IndexType ixType () const noexcept { return m_typ; }
+    IndexType ixType () const { return m_typ; }
 
     //! Return crse ratio of this BoxArray
-    IntVect crseRatio () const noexcept { return m_crse_ratio; }
+    IntVect crseRatio () const { return m_crse_ratio; }
 
     static void Initialize ();
     static void Finalize ();
@@ -500,8 +491,9 @@ private:
 
     BARef::HashType& getHashMap () const;
 
-    IntVect getDoiLo () const noexcept;
-    IntVect getDoiHi () const noexcept;
+
+    IntVect getDoiLo () const;
+    IntVect getDoiHi () const;
 
     std::unique_ptr<BATransformer> m_transformer;
     IndexType m_typ;
